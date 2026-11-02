@@ -42,7 +42,7 @@ from app.ai.datatypes import (
     TextPart,
 )
 from app.ai.providers.base import Provider
-from app.config.settings import ModelInfo, ModelsConfig, ProviderName, load_models_config
+from app.config.settings import ModelInfo, ModelsConfig, ProviderName, get_settings, load_models_config
 from app.db.models import AIRun
 
 PROMPTS_DIR = Path(__file__).resolve().parent / "prompts"
@@ -150,10 +150,14 @@ def default_provider_factory(config: ModelsConfig) -> ProviderFactory:
             if name == "anthropic":
                 from app.ai.providers.anthropic_provider import AnthropicProvider
 
+                settings = get_settings()
+                key = settings.anthropic_api_key
                 provider = AnthropicProvider(
                     max_retries=retries,
                     timeout_s=timeout,
                     server_side_fallback=bool(opts.get("server_side_fallback")),
+                    api_key=key.get_secret_value() if key is not None else None,
+                    base_url=settings.anthropic_base_url,
                 )
             elif name == "openai":
                 from app.ai.providers.openai_provider import OpenAIProvider

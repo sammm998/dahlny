@@ -8,7 +8,7 @@ Konventioner för utveckling: [CLAUDE.md](CLAUDE.md).
 ## Kom igång
 
 ```bash
-cp .env.example .env          # fyll i ANTHROPIC_API_KEY för riktiga AI-anrop
+cp .env.example .env          # fyll i DAHLNY_ANTHROPIC_API_KEY för riktiga AI-anrop
 make setup                    # Python 3.12-venv i backend/.venv
 make db-up                    # PostgreSQL 16 + PostGIS + pg_trgm, Redis
 make migrate
@@ -17,6 +17,18 @@ make dev                      # http://localhost:8000/health
 ```
 
 Indata för testprojektet (Bilaga A) är konfidentiella och ligger inte i repot – se [eval/README.md](eval/README.md).
+
+### Anthropic-nyckeln
+
+VS-Kalkyl läser nyckeln från `DAHLNY_ANTHROPIC_API_KEY` i första hand och `ANTHROPIC_API_KEY` som reserv, och
+skickar den uttryckligen till klienten. I Claude Codes molnmiljö är `ANTHROPIC_API_KEY` och `ANTHROPIC_BASE_URL`
+reserverade av Claude Code och når inte sessionen – lägg nyckeln som `DAHLNY_ANTHROPIC_API_KEY` i miljöns
+inställningar och starta en ny session. API-adressen är `https://api.anthropic.com` och läses aldrig från
+`ANTHROPIC_BASE_URL` (ändra vid behov med `DAHLNY_ANTHROPIC_BASE_URL`). Kontrollera utan att visa värdet:
+
+```bash
+test -n "$DAHLNY_ANTHROPIC_API_KEY" && echo finns || echo saknas
+```
 
 ## Struktur
 
@@ -46,7 +58,7 @@ frontend/             granskningsgränssnitt (från fas 3)
 
 Fas 1 på Bilaga A (`make eval`): TB, ritningsförteckning, format och uppdragsnummer läses deterministiskt.
 Planernas typ, ritningsnummer, skala och uppdragsnummer står bara i titelblock ritade som linjer och kräver
-vision (T2) – kör `make eval` igen när `ANTHROPIC_API_KEY` finns.
+vision (T2) – kör `make eval` igen när `DAHLNY_ANTHROPIC_API_KEY` finns.
 
 Ritningsmotorn: installera `sammm998/Dahlvvvs/engine` i en egen miljö och sätt `VVS_ENGINE_CMD`, t.ex.
 

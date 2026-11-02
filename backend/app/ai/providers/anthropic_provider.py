@@ -36,11 +36,17 @@ class AnthropicProvider:
         max_retries: int,
         timeout_s: float,
         server_side_fallback: bool = False,
+        api_key: str | None = None,
+        base_url: str | None = None,
         client: anthropic.Anthropic | None = None,
     ) -> None:
         if client is None:
             try:
-                client = anthropic.Anthropic(max_retries=max_retries, timeout=timeout_s)
+                # Nyckel och adress skickas uttryckligen när de är satta i VS-Kalkyls inställningar, så att
+                # SDK:n inte plockar upp miljöns ANTHROPIC_* (som i molnmiljön tillhör Claude Code).
+                client = anthropic.Anthropic(
+                    api_key=api_key, base_url=base_url, max_retries=max_retries, timeout=timeout_s
+                )
             except anthropic.AnthropicError as exc:  # saknad nyckel m.m.
                 raise ProviderNotConfigured(f"Anthropic-klienten kunde inte skapas: {exc}") from exc
         self._client = client
@@ -99,7 +105,7 @@ class AnthropicProvider:
                 raise
             raise ProviderNotConfigured(
                 "Inga Anthropic-inloggningsuppgifter "
-                "(sätt ANTHROPIC_API_KEY eller logga in med `ant auth login`)"
+                "(sätt DAHLNY_ANTHROPIC_API_KEY eller ANTHROPIC_API_KEY)"
             ) from exc
 
         raw: dict[str, Any] = message.model_dump(mode="json")

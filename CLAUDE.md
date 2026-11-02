@@ -47,7 +47,8 @@ inte – AI går via `app/ai/`. Utgångsläge och gap: `docs/vvs_engine_bilaga_a
 
 - Repot är privat, men förfrågningsunderlag (TB, ritningar) och nycklar checkas **aldrig** in – `eval/projects/*/input/`
   är gitignorerad utom `MANIFEST.json` (sha256). Facit (`expected/*.json`) checkas in.
-- Hemligheter bara i miljövariabler (`.env`, se `.env.example`).
+- Hemligheter bara i miljövariabler (`.env`, se `.env.example`). Anthropic-nyckeln heter `DAHLNY_ANTHROPIC_API_KEY`
+  (reserv `ANTHROPIC_API_KEY`); skriv aldrig ut värdet – kontrollera med `test -n`.
 
 ## Anthropic-API (nuvarande modeller)
 
