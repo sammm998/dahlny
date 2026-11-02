@@ -31,9 +31,20 @@ tiles:
   overlap_fraction: 0.20
   min_text_height_px: 12             # 7.2 – minsta texthöjd i tile
   dedupe_iou: 0.5                    # 6.4.3 c.2 – slå ihop dubbletter från överlapp
+  dpi: 300                           # 6.4.3 c.2 – 300–400 dpi
+  reread_dpi: 600                    # 6.4.3 c.3 – omläsning av en etikett där läsningarna inte enas
+  reread_margin_pt: 4.0              # marginal runt etiketten i omläsningsutsnittet
+  cut_text_grow: 0.5                 # 7.4 – tile_has_cut_text: bitens sida växer med denna andel och läses om
+  blank_ink_fraction: 0.0005         # bitar med mindre andel mörka pixlar än så hoppas över (tomt papper)
+  ink_threshold: 160                 # gråvärde under detta räknas som bläck
 
 labels:
   min_read_confidence: 0.8           # 6.4.3 c.3 – under → granskning
+  pair_iou: 0.3                      # vision- och OCR-läsning av samma etikett: överlapp i sidkoordinater
+  agree_confidence: 0.98             # vision och OCR läser tecken för tecken lika
+  reread_confidence: 0.85            # omläsningen valde en av läsningarna med hög säkerhet
+  single_reader_cap: 0.75            # bara en läsare såg etiketten → alltid under granskningsgränsen
+  ocr_min_score: 0.5                 # OCR-ord under denna säkerhet används inte
   new_style_unknown_token_fraction: 0.10   # 8.3
 
 scale:

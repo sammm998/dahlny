@@ -69,6 +69,11 @@ tasks:
     escalation: [claude-fable-5-1]
     effort: high
     description: Etikettläsning på ritningstiles (vision)
+  T5R:  # Omläsning av en enskild etikett där vision och OCR inte enas (SPEC 6.4.3 c.3, 7.1 eskalering)
+    model: claude-fable-5-1
+    escalation: []
+    max_tokens: 4096
+    description: Omläsning av etikett i 600 dpi med båda läsningarna som alternativ
   T6:
     model: claude-haiku-5-5
     escalation: [claude-sonnet-5-5]

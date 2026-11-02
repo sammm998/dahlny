@@ -21,6 +21,12 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+# Klassisk OCR som oberoende andra läsning av etiketter (SPEC 6.4.3 c.3) – PaddleOCR-modeller via ONNX,
+# samma version som vvs_engine använder.
+ocr = [
+    "rapidocr==3.9.2",
+    "onnxruntime>=1.19,<2",
+]
 dev = [
     "pytest>=8.3",
     "ruff>=0.6",
