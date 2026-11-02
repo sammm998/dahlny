@@ -32,3 +32,15 @@ class LabelReread(BaseModel):
     )
     confidence: float = Field(ge=0, le=1)
     reason: str
+
+
+class TileTriage(BaseModel):
+    """T5T: sortering av en ritningsbit. Etiketterna fylls bara i för enkla bitar (simple)."""
+
+    kind: Literal["empty", "simple", "hard"] = Field(
+        description="empty: ingen text; simple: få, tydliga, vågräta etiketter utan linjer genom texten; "
+        "hard: allt annat"
+    )
+    reason: str = Field(description="Kort motivering")
+    labels: list[TileLabel] = Field(description="All text i biten om kind är simple, annars tom lista")
+    tile_has_cut_text: bool = Field(description="Skär bildens kant genom någon text?")

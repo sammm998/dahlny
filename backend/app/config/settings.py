@@ -90,6 +90,7 @@ class ModelsConfig(_Strict):
     version: int
     defaults: ModelDefaults
     cost_cap_usd_per_project: float = Field(gt=0)
+    labels_budget_usd_per_sheet: float = Field(gt=0)
     providers: dict[ProviderName, dict[str, Any]]
     models: dict[str, ModelInfo]
     tasks: dict[str, TaskConfig]

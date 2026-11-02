@@ -21,7 +21,8 @@ import hashlib
 import json
 import time
 import uuid
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Iterator, Sequence
+from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from decimal import Decimal
@@ -190,6 +191,8 @@ class AIClient:
         Nås det kastas CostCapExceeded före nästa anrop – det redan gjorda står kvar i ai_run."""
         self._budget = Decimal(str(budget_usd)) if budget_usd is not None else None
         self.spent_usd = Decimal(0)
+        self._scope_limit: Decimal | None = None
+        self._scope_name = ""
         self._sessions = session_factory
         self._config = config or load_models_config()
         self._providers = provider_factory or default_provider_factory(self._config)
@@ -201,6 +204,18 @@ class AIClient:
     @property
     def config(self) -> ModelsConfig:
         return self._config
+
+    @contextmanager
+    def budget_scope(self, usd: float | None, name: str) -> Iterator[None]:
+        """Tak för en del av körningen, t.ex. ett ritningsblad: högst `usd` till inom blocket (utöver
+        körningens och projektets tak). Nås det kastas CostCapExceeded före nästa anrop."""
+        prev = (self._scope_limit, self._scope_name)
+        self._scope_limit = None if usd is None else self.spent_usd + Decimal(str(usd))
+        self._scope_name = name
+        try:
+            yield
+        finally:
+            self._scope_limit, self._scope_name = prev
 
     def structured[T: BaseModel](
         self,
@@ -383,6 +398,10 @@ class AIClient:
         return None
 
     def _check_cost_cap(self, project_id: uuid.UUID | None) -> None:
+        if self._scope_limit is not None and self.spent_usd >= self._scope_limit:
+            raise CostCapExceeded(
+                f"Kostnadstaket för {self._scope_name} är nått ({self.spent_usd} USD totalt)."
+            )
         if self._budget is not None and self.spent_usd >= self._budget:
             raise CostCapExceeded(
                 f"Körningens kostnadstak {self._budget} USD är nått ({self.spent_usd} USD). "

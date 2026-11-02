@@ -1,4 +1,4 @@
-"""T5 (SPEC 6.4.3 c): bitar, vision + OCR, parning, omläsning vid oenighet, flaggning.
+"""T5 (SPEC 6.4.3 c): bitar, OCR först, sortering (T5T), vision + OCR, omläsning, eskalering, bladbudget.
 
 Vision kommer från FakeProvider och OCR från en skriptad läsare – testerna verifierar flödet och reglerna,
 inte läsförmågan. Den mäts mot facit A.4 med eval/tools/label_metrics.py.
@@ -17,9 +17,11 @@ from sqlalchemy.orm import Session, sessionmaker
 from app.ai.client import AIClient
 from app.ai.datatypes import ImagePart, ProviderNotConfigured, ProviderRequest, TextPart
 from app.ai.providers.fake import FakeProvider
-from app.config.settings import load_thresholds
+from app.config.settings import Thresholds, load_thresholds
+from app.drawings import labels as labels_module
 from app.drawings.labels import (
     BBox,
+    PageLabels,
     RapidOcrReader,
     Tile,
     ink_fraction,
@@ -30,9 +32,12 @@ from app.drawings.labels import (
 )
 from app.ingest.pdf_typed import open_pdf
 
-T5, T5_UP, T5R = "claude-opus-5-5", "claude-fable-5-1", "claude-fable-5-1"
+# modellerna enligt models.yaml (beslut 2026-11-02)
+T5T, T5, T5R, T5X = "claude-haiku-5-5", "claude-sonnet-5-5", "claude-sonnet-5-5", "claude-opus-5-5"
 PAGE = (600.0, 400.0)  # liten sida: få bitar i 300 dpi
 LABEL_AT: BBox = (100.0, 100.0, 160.0, 110.0)  # etikettens läge i sidkoordinater
+
+Reply = Callable[[ProviderRequest], dict[str, Any]]
 
 
 def page_with_text() -> bytes:
@@ -47,26 +52,13 @@ def tile_of(req: ProviderRequest) -> str:
     return next((p.label or "") for p in req.parts if isinstance(p, ImagePart))
 
 
-def vision_reply(
-    text: str, conf: float = 0.95, cut: bool = False
-) -> Callable[[ProviderRequest], dict[str, Any]]:
-    """Ett T5-svar som placerar etiketten på dess sidläge, omräknat till bitens pixlar ur bitens etikett."""
-
-    def reply(req: ProviderRequest) -> dict[str, Any]:
-        label = tile_of(req)
-        return (
-            {"labels": [], "tile_has_cut_text": cut} if "_t" not in label else _place(label, text, conf, cut)
-        )
-
-    return reply
-
-
 _TILES: dict[str, Tile] = {}
 
 
-def _place(label: str, text: str, conf: float, cut: bool) -> dict[str, Any]:
+def _place(label: str, text: str | None, conf: float, cut: bool) -> dict[str, Any]:
+    """Etiketten på sitt sidläge, omräknat till bitens pixlar ur bitens bildetikett."""
     tile = _TILES.get(label)
-    if tile is None:
+    if tile is None or text is None:
         return {"labels": [], "tile_has_cut_text": False}
     k = tile.px_per_pt
     x0, y0, x1, y1 = LABEL_AT
@@ -78,6 +70,25 @@ def _place(label: str, text: str, conf: float, cut: bool) -> dict[str, Any]:
                     "leader_end_px": None, "confidence": conf, "uncertain_chars": []}],
         "tile_has_cut_text": cut,
     }  # fmt: skip
+
+
+def vision_reply(text: str, conf: float = 0.95, cut: bool = False) -> Reply:
+    """Ett T5/T5X-svar."""
+
+    def reply(req: ProviderRequest) -> dict[str, Any]:
+        return _place(tile_of(req), text, conf, cut)
+
+    return reply
+
+
+def triage_reply(kind: str, text: str | None = None) -> Reply:
+    """Ett T5T-svar: sortering, och för enkla bitar även läsningen."""
+
+    def reply(req: ProviderRequest) -> dict[str, Any]:
+        labels = _place(tile_of(req), text, 0.95, False)["labels"]
+        return {"kind": kind, "reason": "test", "labels": labels, "tile_has_cut_text": False}
+
+    return reply
 
 
 @pytest.fixture
@@ -113,8 +124,18 @@ class PlacedOcr:
                              (y1 - tile.clip[1]) * k), self.score)]  # fmt: skip
 
 
-def run(page: Any, session_factory: sessionmaker[Session] | None, *, vision: Any, ocr_text: str | None,
-        reread: Any = None) -> Any:  # fmt: skip
+def run(
+    page: Any,
+    session_factory: sessionmaker[Session] | None,
+    *,
+    ocr_text: str | None,
+    triage: Any = None,
+    vision: Any = None,
+    reread: Any = None,
+    escalated: Any = None,
+    use_ocr: bool = True,
+    budget_usd: float | None = None,
+) -> tuple[PageLabels, FakeProvider | None]:
     th = load_thresholds()
     tiles = [
         t
@@ -122,15 +143,39 @@ def run(page: Any, session_factory: sessionmaker[Session] | None, *, vision: Any
         if ink_fraction(render(page, t.clip, 300)[0], th.get("tiles.ink_threshold"))
         >= th.get("tiles.blank_ink_fraction")
     ]  # samma bitar som read_page_labels läser – tomma hoppas över
-    ocr = PlacedOcr(ocr_text).bind(tiles)
-    ai = None
-    if session_factory is not None and vision is not None:
-        replies: dict[str, list[Any]] = {T5: [vision] * 50}
-        if reread is not None:
-            replies[T5R] = [reread] * 5
+    ocr = PlacedOcr(ocr_text).bind(tiles) if use_ocr else None
+    ai, fake = None, None
+    if session_factory is not None:
+
+        def sonnet(req: ProviderRequest) -> dict[str, Any]:
+            # T5 och T5R körs båda av Sonnet: omläsningens bild heter p{n}_reread
+            handler = reread if tile_of(req).endswith("_reread") else vision
+            assert handler is not None, f"oväntat Sonnet-anrop: {tile_of(req)}"
+            return dict(handler) if isinstance(handler, dict) else handler(req)
+
+        replies: dict[str, list[Any]] = {}
+        if triage is not None:
+            replies[T5T] = [triage] * 50
+        if vision is not None or reread is not None:
+            replies[T5] = [sonnet] * 50
+        if escalated is not None:
+            replies[T5X] = [escalated] * 10
         fake = FakeProvider(replies)
         ai = AIClient(session_factory, provider_factory=lambda _n: fake)
-    return read_page_labels(page, ai=ai, ocr=ocr)
+    return read_page_labels(page, ai=ai, ocr=ocr, budget_usd=budget_usd), fake
+
+
+def models_called(fake: FakeProvider | None) -> list[str]:
+    assert fake is not None
+    return [c.model for c in fake.calls]
+
+
+def _with_threshold(monkeypatch: pytest.MonkeyPatch, key: str, value: float) -> None:
+    raw = load_thresholds().model_dump()
+    section, name = key.split(".")
+    raw[section][name] = value
+    patched = Thresholds.model_validate(raw)
+    monkeypatch.setattr(labels_module, "load_thresholds", lambda: patched)
 
 
 def test_tiles_cover_the_page_with_overlap() -> None:
@@ -142,42 +187,104 @@ def test_tiles_cover_the_page_with_overlap() -> None:
     assert tiles[1].clip[0] == pytest.approx(side * 0.8)  # 20 % överlapp
 
 
-def test_agreeing_readers_give_high_confidence(pdf_page: Any, session_factory: sessionmaker[Session]) -> None:
-    res = run(pdf_page, session_factory, vision=vision_reply("KV01-K1-15"), ocr_text="KV01-K1-15")
+def test_hard_tile_goes_to_sonnet_and_agreement_gives_high_confidence(
+    pdf_page: Any, session_factory: sessionmaker[Session]
+) -> None:
+    res, fake = run(
+        pdf_page, session_factory, triage=triage_reply("hard"), vision=vision_reply("KV01-K1-15"),
+        ocr_text="KV01-K1-15",
+    )  # fmt: skip
     [lab] = [lab for lab in res.labels if normalize(lab.text) == "KV01-K1-15"]
     assert lab.method == "vision+ocr" and lab.read_confidence == 0.98 and lab.flags == []
+    assert {r.model for r in lab.readings if r.source == "vision"} == {T5}
     # samma etikett i flera överlappande bitar blir en etikett
     assert sum(1 for lab in res.labels if normalize(lab.text) == "KV01-K1-15") == 1
+    assert set(models_called(fake)) == {T5T, T5} and res.stats.hard >= 1
+    assert res.cost_usd is not None and res.cost_usd > 0  # bladets kostnad loggas
+
+
+def test_simple_tile_is_read_by_haiku_without_sonnet(
+    pdf_page: Any, session_factory: sessionmaker[Session]
+) -> None:
+    res, fake = run(
+        pdf_page, session_factory, triage=triage_reply("simple", "KV01-K1-15"), ocr_text="KV01-K1-15"
+    )
+    [lab] = res.labels
+    assert lab.method == "vision+ocr" and lab.read_confidence == 0.98
+    assert {r.model for r in lab.readings if r.source == "vision"} == {T5T}
+    assert set(models_called(fake)) == {T5T} and res.stats.simple >= 1 and res.stats.hard == 0
+
+
+def test_empty_tile_by_triage_leaves_ocr_flagged(
+    pdf_page: Any, session_factory: sessionmaker[Session]
+) -> None:
+    res, fake = run(pdf_page, session_factory, triage=triage_reply("empty"), ocr_text="KV01-K1-15")
+    [lab] = res.labels
+    assert lab.method == "ocr" and "needs_review" in lab.flags
+    assert set(models_called(fake)) == {T5T} and res.stats.empty >= 1
+
+
+def test_tiles_without_ocr_text_never_go_to_ai(pdf_page: Any, session_factory: sessionmaker[Session]) -> None:
+    res, fake = run(
+        pdf_page, session_factory, triage=triage_reply("hard"), vision=vision_reply("X"), ocr_text=None
+    )
+    assert models_called(fake) == [] and res.labels == []
+    assert res.stats.no_text == res.tiles_read > 0
 
 
 def test_disagreement_is_reread_and_resolved(pdf_page: Any, session_factory: sessionmaker[Session]) -> None:
     reread = {"text": "KV01-K1-15", "choice": "first", "confidence": 0.95, "reason": "nollan är en nolla"}
-    res = run(
-        pdf_page, session_factory, vision=vision_reply("KV01-K1-15"), ocr_text="KVO1-K1-15", reread=reread
-    )
+    res, _ = run(
+        pdf_page, session_factory, triage=triage_reply("hard"), vision=vision_reply("KV01-K1-15"),
+        ocr_text="KVO1-K1-15", reread=reread,
+    )  # fmt: skip
     [lab] = res.labels
     assert lab.text == "KV01-K1-15" and lab.method == "vision+ocr+reread" and lab.read_confidence == 0.85
     assert lab.flags == ["reread_chose_first"]
 
 
-def test_unresolved_disagreement_is_flagged(pdf_page: Any, session_factory: sessionmaker[Session]) -> None:
+def test_unresolved_disagreement_is_flagged_and_escalation_is_capped(
+    pdf_page: Any, session_factory: sessionmaker[Session]
+) -> None:
     reread = {"text": "KV01-K1-16", "choice": "neither", "confidence": 0.6, "reason": "otydligt"}
-    res = run(
-        pdf_page, session_factory, vision=vision_reply("KV01-K1-15"), ocr_text="KVO1-K1-15", reread=reread
-    )
+    res, fake = run(
+        pdf_page, session_factory, triage=triage_reply("hard"), vision=vision_reply("KV01-K1-15"),
+        ocr_text="KVO1-K1-15", reread=reread,
+    )  # fmt: skip
     [lab] = res.labels
     assert lab.read_confidence < 0.8 and "needs_review" in lab.flags and "readers_disagree" in lab.flags
+    # två AI-lästa bitar × 10 % < 1 → ingen bit får eskaleras till Opus
+    assert T5X not in models_called(fake) and res.stats.escalated == 0
+
+
+def test_low_confidence_tile_is_escalated_and_agreement_lifts_the_label(
+    pdf_page: Any, session_factory: sessionmaker[Session], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _with_threshold(monkeypatch, "tiles.escalate_max_fraction", 1.0)
+    reread = {"text": "KV01-K1-16", "choice": "neither", "confidence": 0.6, "reason": "otydligt"}
+    res, fake = run(
+        pdf_page, session_factory, triage=triage_reply("hard"), vision=vision_reply("KV01-K1-16"),
+        ocr_text="KV01-K1-15", reread=reread, escalated=vision_reply("KV01-K1-15"),
+    )  # fmt: skip
+    [lab] = res.labels
+    assert lab.text == "KV01-K1-15" and lab.read_confidence == 0.98
+    assert lab.flags == ["escalated_agrees_ocr"] and lab.method.endswith("+escalated")
+    # bara biten med flest flaggade etiketter, och etiketten räknas bara i en bit
+    assert models_called(fake).count(T5X) == 1 and res.stats.escalated == 1
 
 
 def test_single_reader_is_always_reviewed(pdf_page: Any, session_factory: sessionmaker[Session]) -> None:
-    res = run(pdf_page, session_factory, vision=vision_reply("KV01-K1-15", conf=0.99), ocr_text=None)
+    res, _ = run(
+        pdf_page, session_factory, triage=triage_reply("hard"), vision=vision_reply("KV01-K1-15", conf=0.99),
+        ocr_text=None, use_ocr=False,
+    )  # fmt: skip
     [lab] = res.labels
     assert lab.method == "vision" and lab.read_confidence == 0.75
     assert {"only_vision", "needs_review"} <= set(lab.flags)
 
 
 def test_ocr_only_without_ai(pdf_page: Any) -> None:
-    res = run(pdf_page, None, vision=None, ocr_text="KV01-K1-15")
+    res, _ = run(pdf_page, None, ocr_text="KV01-K1-15")
     [lab] = res.labels
     assert lab.method == "ocr" and "only_ocr" in lab.flags and lab.read_confidence <= 0.75
 
@@ -185,9 +292,30 @@ def test_ocr_only_without_ai(pdf_page: Any) -> None:
 def test_missing_provider_falls_back_to_ocr_and_says_so(
     pdf_page: Any, session_factory: sessionmaker[Session]
 ) -> None:
-    res = run(pdf_page, session_factory, vision=ProviderNotConfigured("ingen nyckel"), ocr_text="KV01-K1-15")
+    res, _ = run(
+        pdf_page, session_factory, triage=ProviderNotConfigured("ingen nyckel"), ocr_text="KV01-K1-15"
+    )
     assert res.problems and "ProviderNotConfigured" in res.problems[0]
     assert [lab.method for lab in res.labels] == ["ocr"]
+
+
+def test_sheet_budget_stops_ai_and_says_so(pdf_page: Any, session_factory: sessionmaker[Session]) -> None:
+    res, fake = run(
+        pdf_page, session_factory, triage=triage_reply("hard"), vision=vision_reply("KV01-K1-15"),
+        ocr_text="KV01-K1-15", budget_usd=1e-9,
+    )  # fmt: skip
+    assert len(models_called(fake)) == 1  # första anropet går, sedan är bladets tak nått
+    assert res.problems and "CostCapExceeded" in res.problems[0] and "blad 1" in res.problems[0]
+    assert all(lab.read_confidence < 0.8 for lab in res.labels)  # resten bara OCR → granskning
+
+
+def test_text_parts_are_sent_with_each_tile(pdf_page: Any, session_factory: sessionmaker[Session]) -> None:
+    _res, fake = run(
+        pdf_page, session_factory, triage=triage_reply("hard"), vision=vision_reply("KV01-K1-15"),
+        ocr_text="KV01-K1-15",
+    )  # fmt: skip
+    assert fake is not None and fake.calls
+    assert all(any(isinstance(p, TextPart) for p in r.parts) for r in fake.calls)
 
 
 def test_rapidocr_maps_vertical_text_back_to_the_page() -> None:
@@ -205,14 +333,3 @@ def test_rapidocr_maps_vertical_text_back_to_the_page() -> None:
     [(text, box, _score)] = reader.read(image)
     # tillbaka i originalet: x = y_r (50–60), y = h-1-x_r (59–89) – lodrät låda
     assert text == "AV20" and box == (50.0, 59.0, 60.0, 89.0)
-
-
-def test_text_parts_are_sent_with_each_tile(pdf_page: Any, session_factory: sessionmaker[Session]) -> None:
-    seen: list[ProviderRequest] = []
-
-    def reply(req: ProviderRequest) -> dict[str, Any]:
-        seen.append(req)
-        return {"labels": [], "tile_has_cut_text": False}
-
-    run(pdf_page, session_factory, vision=reply, ocr_text=None)
-    assert seen and all(any(isinstance(p, TextPart) for p in r.parts) for r in seen)

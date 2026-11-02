@@ -18,6 +18,9 @@ defaults:
 
 # Kostnadstak per projekt (SPEC 7.2). Överskrids → AIClient vägrar nya anrop (CostCapExceeded).
 cost_cap_usd_per_project: 30.0   # beslut 2026-11-02; används också som tak för mätkörningar utan projekt
+# Tak för etikettläsningen (T5T/T5/T5R/T5X) per ritningsblad. Nås det läses resten av bladet bara med OCR
+# (flaggat för granskning). Beslut 2026-11-02: under 1 USD per ritning.
+labels_budget_usd_per_sheet: 1.0
 
 providers:
   anthropic:
@@ -64,16 +67,27 @@ tasks:
     escalation: []
     effort: high
     description: TB-fullständighetskontroll (annan modell än T3)
+  T5T:  # Sortering av ritningsbitar (beslut 2026-11-02): bara svåra bitar går till T5
+    model: claude-haiku-5-5
+    escalation: []
+    effort: low
+    max_tokens: 8192
+    description: Sorterar en ritningsbit som tom, enkel eller svår och läser etiketterna i enkla bitar
   T5:
-    model: claude-opus-5-5
-    escalation: [claude-fable-5-1]
+    model: claude-sonnet-5-5   # beslut 2026-11-02 (Bilaga A: 87/88 exakt); Opus bara via T5X
+    escalation: []
     effort: high
-    description: Etikettläsning på ritningstiles (vision)
+    description: Etikettläsning på svåra ritningsbitar (vision)
   T5R:  # Omläsning av en enskild etikett där vision och OCR inte enas (SPEC 6.4.3 c.3, 7.1 eskalering)
-    model: claude-fable-5-1
+    model: claude-sonnet-5-5
     escalation: []
     max_tokens: 4096
     description: Omläsning av etikett i 600 dpi med båda läsningarna som alternativ
+  T5X:  # Eskalering: högst tiles.escalate_max_fraction av bitarna, de med flest flaggade etiketter
+    model: claude-opus-5-5
+    escalation: []
+    effort: high
+    description: Ny läsning av enstaka bitar med låg konfidens (samma uppgift som T5, starkare modell)
   T6:
     model: claude-haiku-5-5
     escalation: [claude-sonnet-5-5]
