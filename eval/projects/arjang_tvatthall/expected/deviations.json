@@ -1,0 +1,113 @@
+{
+  "source": "SPEC.md Bilaga A – Tvätthall Årjäng (Bengt Dahlgren, uppdrag 70250105), A.3",
+  "deviations": [
+    {
+      "id": "A3-1",
+      "number": 1,
+      "rule_id": "TB_MENTIONED_NOT_ITEMIZED",
+      "severity": "critical",
+      "subject": "golvränna",
+      "description": "Golvränna i verkstad och tvätthall nämns i 53.B; plan 0 har texten 'Monteras i golvränna' vid B201B; ingen PR-post.",
+      "expected_by_phase": 2
+    },
+    {
+      "id": "A3-2",
+      "number": 2,
+      "rule_id": "TB_SELF_CONTRADICTION",
+      "severity": "warning",
+      "subject": "B201B",
+      "description": "B201B 300x300x192 i text vs 300x300x400 i specifikation (i TB skrivet '300 x 300 x 400mm' – jämför efter normalisering av blanksteg/enhet).",
+      "expected_by_phase": 3
+    },
+    {
+      "id": "A3-3",
+      "number": 3,
+      "rule_id": "TB_SELF_CONTRADICTION",
+      "severity": "info",
+      "subject": "B202B",
+      "description": "B202B text 'Storlek Golvtyp …' ofullständig mening.",
+      "expected_by_phase": 3
+    },
+    {
+      "id": "A3-4",
+      "number": 4,
+      "rule_id": "OPTION_REQUIRED",
+      "severity": "info",
+      "subject": "radontätning B201B/B202B",
+      "description": "Radontätning B201B/B202B 'ska ingå i anbudet, utredningen sker i senare skede'.",
+      "expected_by_phase": 3
+    },
+    {
+      "id": "A3-5",
+      "number": 5,
+      "rule_id": "MATERIAL_CODE_MISMATCH",
+      "severity": "warning",
+      "subject": "KV01",
+      "description": "TB KV01-E9 vs ritning KV01-E13-40 (legend: E13 = PEM-rör PN10).",
+      "expected_by_phase": 8
+    },
+    {
+      "id": "A3-6",
+      "number": 6,
+      "rule_id": "TB_QTY_VS_DRAWING",
+      "severity": "warning",
+      "subject": "RA101",
+      "description": "RA101 2 st i TB; kontrollera antal på plan.",
+      "expected_by_phase": 8
+    },
+    {
+      "id": "A3-7",
+      "number": 7,
+      "rule_id": "CONFLICTING_REQUIREMENTS",
+      "severity": "warning",
+      "subject": "PUC.1 konsoler",
+      "description": "PUC.1: plastbelagda konsoler vs förstärkta konsoler typ skolmodell.",
+      "expected_by_phase": 3
+    },
+    {
+      "id": "A3-8",
+      "number": 8,
+      "rule_id": "UNDEFINED_VALUE",
+      "severity": "warning",
+      "subject": "VM101",
+      "description": "VM101 'DN XX', '1-2 st'.",
+      "expected_by_phase": 3
+    },
+    {
+      "id": "A3-9",
+      "number": 9,
+      "rule_id": "TITLEBLOCK_MISMATCH",
+      "severity": "info",
+      "subject": "uppdragsnummer",
+      "description": "Ritningar uppdragsnr 70230105, TB 70250105.",
+      "expected_by_phase": 3
+    },
+    {
+      "id": "A3-10a",
+      "number": 10,
+      "rule_id": "DECIDE_WITH_CLIENT",
+      "severity": "info",
+      "subject": "snabbkopplingstyp",
+      "description": "Snabbkopplingstyp tryckluft/tappvatten bestäms i samråd med beställaren.",
+      "expected_by_phase": 3
+    },
+    {
+      "id": "A3-10b",
+      "number": 10,
+      "rule_id": "DECIDE_WITH_CLIENT",
+      "severity": "info",
+      "subject": "vattenmätarkonsol",
+      "description": "Vattenmätarkonsol bestäms i samråd med kommunen.",
+      "expected_by_phase": 3
+    },
+    {
+      "id": "A3-11",
+      "number": 11,
+      "rule_id": "ACCESSORY_NOT_CONFIRMED",
+      "severity": "warning",
+      "subject": "B202B",
+      "description": "B202B mot Prixel-artikel 142B1106 (rutgaller M125, vattenlås, ställben, skyddslock).",
+      "expected_by_phase": 4
+    }
+  ]
+}

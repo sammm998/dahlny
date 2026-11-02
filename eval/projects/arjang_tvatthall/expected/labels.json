@@ -1,0 +1,557 @@
+{
+  "source": "SPEC.md Bilaga A – Tvätthall Årjäng (Bengt Dahlgren, uppdrag 70250105), A.4 (urval, tecken-exakt)",
+  "drawings": [
+    {
+      "drawing_no": "W-50-1-1000",
+      "title": "Plan 1",
+      "labels": [
+        {
+          "text": "KV01-K1-15-W40",
+          "kind": "pipe",
+          "parse_status": "unknown_token",
+          "note": null
+        },
+        {
+          "text": "KV01-K1-28-W40",
+          "kind": "pipe",
+          "parse_status": "unknown_token",
+          "note": null
+        },
+        {
+          "text": "KV01-K1-W40",
+          "kind": "pipe",
+          "parse_status": "unknown_token",
+          "note": null
+        },
+        {
+          "text": "KV01-K1-15",
+          "kind": "pipe",
+          "parse_status": "ok",
+          "note": null
+        },
+        {
+          "text": "KV01-K1",
+          "kind": "pipe",
+          "parse_status": "ok",
+          "note": null
+        },
+        {
+          "text": "AV201-15",
+          "kind": "object",
+          "parse_status": "ok",
+          "note": null
+        },
+        {
+          "text": "AV201-25",
+          "kind": "object",
+          "parse_status": "ok",
+          "note": null
+        },
+        {
+          "text": "AV203-20",
+          "kind": "object",
+          "parse_status": "ok",
+          "note": null
+        },
+        {
+          "text": "L9-S13-28",
+          "kind": "pipe",
+          "parse_status": "ok",
+          "note": null
+        },
+        {
+          "text": "L9-S13-22",
+          "kind": "pipe",
+          "parse_status": "ok",
+          "note": null
+        },
+        {
+          "text": "L9-28",
+          "kind": "pipe",
+          "parse_status": "ok",
+          "note": null
+        },
+        {
+          "text": "L9",
+          "kind": "pipe",
+          "parse_status": "ok",
+          "note": null
+        },
+        {
+          "text": "22",
+          "kind": "dimension",
+          "parse_status": "ok",
+          "note": null
+        },
+        {
+          "text": "28",
+          "kind": "dimension",
+          "parse_status": "ok",
+          "note": null
+        },
+        {
+          "text": "VV01-K5",
+          "kind": "pipe",
+          "parse_status": "ok",
+          "note": null
+        },
+        {
+          "text": "KV01-K5",
+          "kind": "pipe",
+          "parse_status": "ok",
+          "note": null
+        },
+        {
+          "text": "KV01-K5-15",
+          "kind": "pipe",
+          "parse_status": "ok",
+          "note": null
+        },
+        {
+          "text": "VV01-K1-15-F",
+          "kind": "pipe",
+          "parse_status": "unknown_token",
+          "note": null
+        },
+        {
+          "text": "KV01-K1-15-W",
+          "kind": "pipe",
+          "parse_status": "unknown_token",
+          "note": null
+        },
+        {
+          "text": "S01-P3",
+          "kind": "pipe",
+          "parse_status": "ok",
+          "note": null
+        },
+        {
+          "text": "S03-P2",
+          "kind": "pipe",
+          "parse_status": "ok",
+          "note": null
+        },
+        {
+          "text": "S02-P2",
+          "kind": "pipe",
+          "parse_status": "ok",
+          "note": null
+        },
+        {
+          "text": "RA101",
+          "kind": "object",
+          "parse_status": "ok",
+          "note": null
+        },
+        {
+          "text": "B101P",
+          "kind": "object",
+          "parse_status": "ok",
+          "note": null
+        },
+        {
+          "text": "B201B",
+          "kind": "object",
+          "parse_status": "ok",
+          "note": null
+        },
+        {
+          "text": "B202B",
+          "kind": "object",
+          "parse_status": "ok",
+          "note": null
+        },
+        {
+          "text": "CL+3400",
+          "kind": "height_cl",
+          "parse_status": "ok",
+          "note": null
+        },
+        {
+          "text": "CL+2900",
+          "kind": "height_cl",
+          "parse_status": "ok",
+          "note": null
+        },
+        {
+          "text": "CL+2700",
+          "kind": "height_cl",
+          "parse_status": "ok",
+          "note": null
+        },
+        {
+          "text": "CL+2550",
+          "kind": "height_cl",
+          "parse_status": "ok",
+          "note": null
+        },
+        {
+          "text": "CL+2300",
+          "kind": "height_cl",
+          "parse_status": "ok",
+          "note": null
+        },
+        {
+          "text": "CL+1400",
+          "kind": "height_cl",
+          "parse_status": "ok",
+          "note": null
+        },
+        {
+          "text": "VVB001",
+          "kind": "object",
+          "parse_status": "ok",
+          "note": null
+        },
+        {
+          "text": "55L",
+          "kind": "free_text",
+          "parse_status": "ok",
+          "note": "Volym vid VVB001 (55 liter), inte en rördimension"
+        },
+        {
+          "text": "110L",
+          "kind": "dimension",
+          "parse_status": "ok",
+          "note": null
+        },
+        {
+          "text": "110",
+          "kind": "dimension",
+          "parse_status": "ok",
+          "note": null
+        },
+        {
+          "text": "75",
+          "kind": "dimension",
+          "parse_status": "ok",
+          "note": null
+        },
+        {
+          "text": "15",
+          "kind": "dimension",
+          "parse_status": "ok",
+          "note": null
+        },
+        {
+          "text": "VUK",
+          "kind": "free_text",
+          "parse_status": "ok",
+          "note": "Förkortning för vattenutkastare (VUK101)"
+        },
+        {
+          "text": "ANSL. HÖGTRYCK",
+          "kind": "free_text",
+          "parse_status": "ok",
+          "note": null
+        },
+        {
+          "text": "ANSL. SPOLSLANG",
+          "kind": "free_text",
+          "parse_status": "ok",
+          "note": null
+        },
+        {
+          "text": "ANSL. TRYCKLUFT",
+          "kind": "free_text",
+          "parse_status": "ok",
+          "note": null
+        }
+      ]
+    },
+    {
+      "drawing_no": "W-53-1-0900",
+      "title": "Plan 0 i mark",
+      "labels": [
+        {
+          "text": "KV01-E13-40",
+          "kind": "pipe",
+          "parse_status": "ok",
+          "note": null
+        },
+        {
+          "text": "KV01-E13",
+          "kind": "pipe",
+          "parse_status": "ok",
+          "note": null
+        },
+        {
+          "text": "40",
+          "kind": "dimension",
+          "parse_status": "ok",
+          "note": null
+        },
+        {
+          "text": "S01-P2-75",
+          "kind": "pipe",
+          "parse_status": "ok",
+          "note": null
+        },
+        {
+          "text": "VG+-563",
+          "kind": "height_vg",
+          "parse_status": "ok",
+          "note": null
+        },
+        {
+          "text": "S01-P2",
+          "kind": "pipe",
+          "parse_status": "ok",
+          "note": null
+        },
+        {
+          "text": "110L",
+          "kind": "dimension",
+          "parse_status": "ok",
+          "note": null
+        },
+        {
+          "text": "S03-P2",
+          "kind": "pipe",
+          "parse_status": "ok",
+          "note": null
+        },
+        {
+          "text": "S02-75L",
+          "kind": "pipe",
+          "parse_status": "ok",
+          "note": null
+        },
+        {
+          "text": "VG+-570",
+          "kind": "height_vg",
+          "parse_status": "ok",
+          "note": null
+        },
+        {
+          "text": "VG+-733",
+          "kind": "height_vg",
+          "parse_status": "ok",
+          "note": null
+        },
+        {
+          "text": "S01-110",
+          "kind": "pipe",
+          "parse_status": "ok",
+          "note": null
+        },
+        {
+          "text": "S01-P2-110",
+          "kind": "pipe",
+          "parse_status": "ok",
+          "note": null
+        },
+        {
+          "text": "VG+-635",
+          "kind": "height_vg",
+          "parse_status": "ok",
+          "note": null
+        },
+        {
+          "text": "VG+-700",
+          "kind": "height_vg",
+          "parse_status": "ok",
+          "note": null
+        },
+        {
+          "text": "VG+-609",
+          "kind": "height_vg",
+          "parse_status": "ok",
+          "note": null
+        },
+        {
+          "text": "S02-P2-75",
+          "kind": "pipe",
+          "parse_status": "ok",
+          "note": null
+        },
+        {
+          "text": "VG+-757",
+          "kind": "height_vg",
+          "parse_status": "ok",
+          "note": null
+        },
+        {
+          "text": "S02-P2-110",
+          "kind": "pipe",
+          "parse_status": "ok",
+          "note": null
+        },
+        {
+          "text": "VG+-828",
+          "kind": "height_vg",
+          "parse_status": "ok",
+          "note": null
+        },
+        {
+          "text": "VG+-857",
+          "kind": "height_vg",
+          "parse_status": "ok",
+          "note": null
+        },
+        {
+          "text": "VG+-834",
+          "kind": "height_vg",
+          "parse_status": "ok",
+          "note": null
+        },
+        {
+          "text": "S03-P2-110L",
+          "kind": "pipe",
+          "parse_status": "ok",
+          "note": null
+        },
+        {
+          "text": "VG+-1005",
+          "kind": "height_vg",
+          "parse_status": "ok",
+          "note": null
+        },
+        {
+          "text": "ENTR. GRÄNS",
+          "kind": "free_text",
+          "parse_status": "ok",
+          "note": "Entreprenadgräns – stoppar propagering (6.4.3 h.3)"
+        },
+        {
+          "text": "IHOPKOPPLING LUFTNING",
+          "kind": "free_text",
+          "parse_status": "ok",
+          "note": null
+        },
+        {
+          "text": "Monteras i golvränna",
+          "kind": "free_text",
+          "parse_status": "ok",
+          "note": "Underlag för avvikelse A3-1"
+        },
+        {
+          "text": "1:100",
+          "kind": "slope",
+          "parse_status": "ok",
+          "note": "Fall 1 % intill spillvattenledning – ALDRIG skala"
+        }
+      ]
+    },
+    {
+      "drawing_no": "W-50-8-1000",
+      "title": "Flödesschema VS",
+      "labels": [
+        {
+          "text": "L9-22",
+          "kind": "pipe",
+          "parse_status": "ok",
+          "note": null
+        },
+        {
+          "text": "L9-28",
+          "kind": "pipe",
+          "parse_status": "ok",
+          "note": null
+        },
+        {
+          "text": "AV20",
+          "kind": "schematic_valve",
+          "parse_status": "ok",
+          "note": null
+        },
+        {
+          "text": "AV25",
+          "kind": "schematic_valve",
+          "parse_status": "ok",
+          "note": null
+        },
+        {
+          "text": "AVTAPPNING",
+          "kind": "free_text",
+          "parse_status": "ok",
+          "note": null
+        },
+        {
+          "text": "KV01-15",
+          "kind": "pipe",
+          "parse_status": "ok",
+          "note": null
+        },
+        {
+          "text": "KV01-28",
+          "kind": "pipe",
+          "parse_status": "ok",
+          "note": null
+        },
+        {
+          "text": "VV01-15",
+          "kind": "pipe",
+          "parse_status": "ok",
+          "note": null
+        },
+        {
+          "text": "BV15",
+          "kind": "schematic_valve",
+          "parse_status": "ok",
+          "note": null
+        },
+        {
+          "text": "BV25",
+          "kind": "schematic_valve",
+          "parse_status": "ok",
+          "note": null
+        },
+        {
+          "text": "AV15",
+          "kind": "schematic_valve",
+          "parse_status": "ok",
+          "note": null
+        },
+        {
+          "text": "SIL101-25",
+          "kind": "object",
+          "parse_status": "ok",
+          "note": null
+        },
+        {
+          "text": "VATTENUTKASTARE",
+          "kind": "free_text",
+          "parse_status": "ok",
+          "note": null
+        },
+        {
+          "text": "HÖGTRYCKSTVÄTT",
+          "kind": "free_text",
+          "parse_status": "ok",
+          "note": null
+        },
+        {
+          "text": "SPOLSLANG",
+          "kind": "free_text",
+          "parse_status": "ok",
+          "note": null
+        },
+        {
+          "text": "80°C",
+          "kind": "free_text",
+          "parse_status": "ok",
+          "note": null
+        },
+        {
+          "text": "60°C",
+          "kind": "free_text",
+          "parse_status": "ok",
+          "note": null
+        },
+        {
+          "text": "VVB 55 LITER",
+          "kind": "free_text",
+          "parse_status": "ok",
+          "note": null
+        }
+      ]
+    }
+  ],
+  "notes": [
+    "W40, W och F som suffix finns inte i legenden → UNKNOWN_LABEL_TOKEN, fråga användaren/konsulten.",
+    "1:100 intill spillvattenledningar = fall (1 %), inte skala.",
+    "'kind' anger vilken del av grammatiken (Bilaga B.4) etiketten ska tolkas med; ensamma siffror är understrukna dimensioner som hör till närmaste etikett/rör.",
+    "Ritningarnas text är ritad som linjer → etiketterna måste läsas via vision (fas 6)."
+  ]
+}

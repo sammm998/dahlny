@@ -1,0 +1,51 @@
+# Standardtabeller enligt SPEC Bilaga B.1–B.3.
+# Projektets egen legend (6.4.5) har ALLTID företräde framför dessa.
+
+materials:   # B.1 – från Bengt Dahlgrens legend i Bilaga A (vanlig svensk praxis)
+  K1: Koppar, hårda
+  K5: Koppar, förkromade
+  K6: Koppar, prisol
+  K7: Koppar, plusprisol
+  S1: Stålrör, blå
+  S13: Mapress eller likv.
+  S4: Ståltub
+  G3: MA-rör
+  R1: Rostfritt, PN10
+  R3: Rostfritt, syrafast
+  R10: Rostfritt, syrafast, för avlopp
+  E13: PEM-rör, PN10
+  X2: PEX, golvvärme
+  X3: PEX-rör
+  X7: Alupex, komposit
+  X8: Plastkulvert, PEX, VS
+  X9: Plastkulvert, VV, VVC
+  P2: PP-rör, markavlopp
+  P3: PP-rör, inomhus
+  P5: PP-rör, ljuddämpande
+
+systems:     # B.2
+  VS21: Radiatorvärme sekundär
+  VP01: Värme primär
+  VS11: Ventilationsvärme sekundär
+  VS31: Golvvärme sekundär
+  KS01: Kyla sekundär
+  KP01: Kyla primär
+  KV: Tappkallvatten
+  VV: Tappvarmvatten
+  VVC: Tappvarmvatten cirkulation
+  S01: Spillvatten
+  D01: Dagvatten
+  S01L: Spillvatten, luftning
+  S02: Spillvatten, oljeavskiljare
+  S03L: Luftning oljeavskiljare
+  L9: Tryckluft allmän
+
+# B.3 – används bara när TB saknar explicit koppling material ↔ AMA-kod.
+material_ama:
+  K1: {code: PNU.311, title: Ledningar av icke ytbehandlade raka kopparrör}
+  K5: {code: PNU.312, title: Ledningar av ytbehandlade raka kopparrör}
+  S13: {code: PNU.215, title: Ledningar av raka tunnväggiga olegerade stålrör}
+  E13: {code: PNU.5121, title: "Ledningar av PE-rör, standardiserade tryckrör"}
+  E9: {code: PNU.5121, title: "Ledningar av PE-rör, standardiserade tryckrör"}
+  P2: {code: PNU.521, title: "Ledningar av plaströr, markavloppsrör"}
+  P3: {code: PNU.5223, title: "Ledningar av PP-rör, inomhusavloppsrör"}

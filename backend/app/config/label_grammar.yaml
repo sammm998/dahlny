@@ -1,0 +1,28 @@
+# Beteckningsgrammatik – utgångsläge enligt SPEC Bilaga B.4.
+# Grammatiken är data, inte kod (SPEC 8.5). Varje ändring kräver att alla examples_ok
+# fortfarande parsas (tests/test_config.py) och att `make eval` inte försämras.
+# Projektets egen legend har alltid företräde.
+
+pipe:
+  # SYSTEM[NR]-MATERIAL-DIM[-SUFFIX...]
+  pattern: '^(?P<system>[A-Z]{1,4}\d{0,3}L?)(?:-(?P<material>[A-Z]{1,2}\d{1,2}))?(?:-(?P<dim>\d{1,3}(?:[.,]\d)?L?))?(?P<suffixes>(?:-[A-Z]+\d*)*)$'
+  examples_ok: [KV01-K1-15-W40, S02-P2-110, L9-S13-28, S01-P2-110L, KV01-E13-40, VV01-K1-15-F, KV01-K1, L9-28, KV01-15, S01-110]
+  notes:
+    - "Dimension avser mm, tum eller DN enligt legend ('Rördimension avser mått i mm, tum eller DN')."
+    - "Suffix 'L' efter dimension = luftning (110L)."
+    - "Okänt suffix (W40, W, F) => unknown_token, fråga."
+    - "Ensam dimension ('22', '28', '15') under en etikett hör till närmaste rör/etikett ovanför (understruken siffra)."
+height:
+  cl: '^CL\+(?P<mm>\d{3,5})$'          # centrumhöjd mm över färdigt golv
+  vg: '^VG\+-(?P<mm>\d{2,5})$'         # vattengång relativt färdigt golv (tecken enligt konsult)
+slope: '^1:(?P<n>\d{2,4})$'            # fall, t.ex. 1:100 – får ALDRIG tolkas som skala nära rör
+object:
+  pattern: '^(?P<type>[A-Z]{1,4})(?P<nr>\d{2,4})(?P<suffix>[A-Z]?)(?:-(?P<dim>\d{1,3}))?$'
+  examples_ok: [B201B, B101P, AV201-15, AV203-20, SIL101-25, RA101, VVB001, VUK101, TS501]
+schematic_valve:
+  pattern: '^(?P<type>AV|BV|IV|SV|BLV)(?P<dim>\d{2,3})$'   # AV15, BV25 = typ + DN direkt
+  examples_ok: [AV15, AV20, AV25, BV15, BV25]
+alternatives:   # andra konsulters varianter – fyll på via stilprofiler
+  - '^(?P<system>[A-Z]{2,4})\s?(?P<nr>\d{1,3})\s?-\s?(?P<material>[A-Z]{1,2}\d{1,2})\s?-\s?(?P<dim>\d{1,3})$'
+  - '^Ø(?P<dim>\d{2,3})\s?(?P<material>PP|PVC|PE|GJK|SML)$'
+  - '^(?P<dim>\d/\d|\d(?: \d/\d)?)\"$'

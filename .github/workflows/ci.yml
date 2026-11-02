@@ -1,0 +1,40 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    services:
+      db:
+        image: postgis/postgis:16-3.4
+        env:
+          POSTGRES_USER: vskalkyl
+          POSTGRES_PASSWORD: vskalkyl
+          POSTGRES_DB: vskalkyl_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U vskalkyl -d vskalkyl_test"
+          --health-interval 5s --health-timeout 3s --health-retries 20
+    env:
+      TEST_DATABASE_URL: postgresql+psycopg://vskalkyl:vskalkyl@localhost:5432/vskalkyl_test
+      DATABASE_URL: postgresql+psycopg://vskalkyl:vskalkyl@localhost:5432/vskalkyl_test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: backend/pyproject.toml
+      - name: Installera
+        run: python -m venv backend/.venv && backend/.venv/bin/pip install -q -e 'backend[dev]'
+      - name: Lint
+        run: make lint
+      - name: Typkontroll (mypy --strict)
+        run: make typecheck
+      - name: Tester
+        run: make test
+      - name: Utvärdering (facit; indata är konfidentiella och finns inte i CI)
+        run: make eval

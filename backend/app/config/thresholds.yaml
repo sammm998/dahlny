@@ -1,0 +1,53 @@
+# Alla trösklar samlade här – inga magiska tal i koden (SPEC 12).
+# Längder "på papper" anges i mm och räknas om till PDF-punkter via ritningens pappersskala.
+
+ingest:
+  render_overview_dpi: 100
+  render_work_dpi: 300
+  render_crop_dpi: 600
+  classify_text_chars: 2000          # 6.1.4 – textlagrets första N tecken till T1
+  min_vector_paths_for_vector_page: 50
+
+raster_quality:
+  min_text_height_px: 20             # 6.4.4 – lägre → endast manuell mängdning
+  recommended_rescan_dpi: 300
+
+tiles:
+  size_px: 1024
+  overlap_fraction: 0.20
+  min_text_height_px: 12             # 7.2 – minsta texthöjd i tile
+  dedupe_iou: 0.5                    # 6.4.3 c.2 – slå ihop dubbletter från överlapp
+
+labels:
+  min_read_confidence: 0.8           # 6.4.3 c.3 – under → granskning
+  new_style_unknown_token_fraction: 0.10   # 8.3
+
+scale:
+  max_disagreement_fraction: 0.01    # 6.4.3 f – två metoder inom 1 %
+
+graph:
+  snap_tolerance_mm_paper: 0.5       # 6.4.3 g.1
+  direction_change_deg_fitting: 30   # 6.4.3 l – böj vid riktningsändring > 30°
+
+assign:
+  leader_end_tolerance_mm_paper: 1.0 # 6.4.3 h.1
+  leader_confidence: 0.95
+  proximity_max_mm_paper: 6.0        # 6.4.3 h.2
+  proximity_confidence: 0.8
+  proximity_ambiguity_ratio: 1.5
+  branch_inherited_dim_confidence: 0.6   # h.3
+  branch_legend_dim_confidence: 0.85     # h.3
+  max_unassigned_length_fraction: 0.02   # h.5 / UNASSIGNED_PIPE
+
+raster_paths:
+  max_confidence_scan: 0.85          # 6.4.4.5 väg D
+  max_confidence_photo: 0.75         # 6.4.4.5 väg E
+
+matching:
+  score_rsk_exact: 1.0               # 6.3
+  score_supplier_art_no_exact: 0.98
+  fuzzy_top_k: 20
+  stock_min_score: 0.95
+  request_below_score: 0.6
+  rerank_escalate_min: 0.6           # 7.1 T6 – eskalera vid 0.6–0.95
+  rerank_escalate_max: 0.95

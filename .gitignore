@@ -1,0 +1,29 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+*.egg-info/
+.coverage
+htmlcov/
+
+# Env/secrets
+.env
+.env.*
+!.env.example
+
+# Node
+node_modules/
+frontend/dist/
+
+# Förfrågningsunderlag är konfidentiella (SPEC 10, 11.1) och repot är publikt:
+# indata checkas aldrig in. Placera filerna lokalt enligt eval/README.md.
+eval/projects/*/input/*
+!eval/projects/*/input/MANIFEST.json
+eval/reports/
+
+# Lokal lagring
+data/
+storage/

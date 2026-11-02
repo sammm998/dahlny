@@ -1,0 +1,30 @@
+{
+  "project": "arjang_tvatthall",
+  "confidential": true,
+  "files": [
+    {
+      "filename": "11_5_Teknisk_Beskrivning_VS.pdf",
+      "sha256": "79ff979f2149e10c1fdb12ad6d1e3e6139bfc9c57a30c75c554f09df765b159d",
+      "pages": 37,
+      "description": "TB, 37 s, textlager finns (Bengt Dahlgren, uppdrag 70250105, 2025-09-15)"
+    },
+    {
+      "filename": "12_4_Ritningar_VS.pdf",
+      "sha256": "364d8d172d4605be47b23adf6c169734906363137f4f10c24009820e320937a8",
+      "pages": 4,
+      "description": "4 s: ritningsförteckning, W-50-1-1000, W-53-1-0900, W-50-8-1000 (text ritad som linjer)"
+    },
+    {
+      "filename": "prixel_exempelrad_B202B.png",
+      "sha256": "d87e05d606d7d5587f303e8c3f07369dffa7f9a465d1bb943a1d949368a55ae8",
+      "pages": null,
+      "description": "Färdig Prixel-rad (Bilaga A.6)"
+    },
+    {
+      "filename": "tb_utdrag_PRB12.png",
+      "sha256": "2b5a1c8c8666ce6c85e87d6732df7b6d2e77f96ec87e6083b2532465370ecd76",
+      "pages": null,
+      "description": "Utdrag ur TB, PRB.12 golvbrunnar"
+    }
+  ]
+}

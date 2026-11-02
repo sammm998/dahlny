@@ -1,0 +1,117 @@
+{
+  "source": "SPEC.md Bilaga A – Tvätthall Årjäng (Bengt Dahlgren, uppdrag 70250105), A.5",
+  "counts": [
+    {
+      "group": "golvbrunnar",
+      "kind": "floor_drain",
+      "tag": "B101P",
+      "count": 2,
+      "source": "plan",
+      "note": null
+    },
+    {
+      "group": "golvbrunnar",
+      "kind": "floor_drain",
+      "tag": "B201B",
+      "count": 1,
+      "source": "plan",
+      "note": null
+    },
+    {
+      "group": "golvbrunnar",
+      "kind": "floor_drain",
+      "tag": "B202B",
+      "count": 1,
+      "source": "plan",
+      "note": null
+    },
+    {
+      "group": "tryckluft",
+      "kind": "outlet",
+      "tag": "TRYCKLUFTSUTTAG",
+      "count": 4,
+      "source": "schematic",
+      "note": "3 i verkstad + 1 i tvätthall"
+    },
+    {
+      "group": "tryckluft",
+      "kind": "valve",
+      "tag": "AV20 (avtappning)",
+      "count": 1,
+      "source": "schematic",
+      "note": null
+    },
+    {
+      "group": "tryckluft",
+      "kind": "valve",
+      "tag": "AV25 (vid kompressor)",
+      "count": 1,
+      "source": "schematic",
+      "note": null
+    },
+    {
+      "group": "tappvatten",
+      "kind": "strainer",
+      "tag": "SIL101",
+      "count": 1,
+      "source": "schematic",
+      "note": null
+    },
+    {
+      "group": "tappvatten",
+      "kind": "backflow",
+      "tag": "ASS (BA)",
+      "count": 1,
+      "source": "schematic",
+      "note": null
+    },
+    {
+      "group": "tappvatten",
+      "kind": "valve",
+      "tag": "BV15",
+      "count": 1,
+      "source": "schematic",
+      "note": null
+    },
+    {
+      "group": "tappvatten",
+      "kind": "valve",
+      "tag": "BV25",
+      "count": 1,
+      "source": "schematic",
+      "note": null
+    },
+    {
+      "group": "tappvatten",
+      "kind": "valve",
+      "tag": "AV15",
+      "count": 3,
+      "source": "schematic",
+      "note": "På utkastare/högtryck/spolslangar"
+    },
+    {
+      "group": "tappvatten",
+      "kind": "valve",
+      "tag": "AV25",
+      "count": 1,
+      "source": "schematic",
+      "note": "På utkastare/högtryck/spolslangar"
+    },
+    {
+      "group": "tappvatten",
+      "kind": "meter_branch",
+      "tag": null,
+      "count": 2,
+      "source": "schematic",
+      "note": "Två parallella mätargrenar"
+    }
+  ],
+  "legend_tables": [
+    "RÖRBETECKNINGAR",
+    "FÖRKLARINGAR",
+    "MATRIS FÖR ISOLERING"
+  ],
+  "notes": [
+    "SPEC 6.4.3 k anger dessutom 4×AV20 vid uttagen (L9) – stäms av mot schemat i fas 8."
+  ]
+}

@@ -1,0 +1,65 @@
+[project]
+name = "vs-kalkyl"
+version = "0.1.0"
+description = "VS-Kalkyl – automatiserad offertberedning för VS-entreprenader (se SPEC.md)"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.30",
+    "pydantic>=2.8",
+    "pydantic-settings>=2.4",
+    "sqlalchemy>=2.0.30",
+    "alembic>=1.13",
+    "psycopg[binary]>=3.2",
+    "geoalchemy2>=0.15",
+    "pyyaml>=6.0",
+    "anthropic>=0.70",
+    "openai>=1.50",
+    "celery[redis]>=5.4",
+    "httpx>=0.27",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.3",
+    "ruff>=0.6",
+    "mypy>=1.11",
+    "types-PyYAML",
+    "httpx2",  # SDK:ernas transport, används i adaptertesterna
+]
+
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["app*"]
+
+[tool.setuptools.package-data]
+app = ["config/*.yaml", "ai/prompts/*/*.md", "db/migrations/*.py", "db/migrations/*.mako", "db/migrations/versions/*.py"]
+
+[tool.ruff]
+line-length = 110
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "N", "SIM", "RUF"]
+ignore = [
+    "RUF001", "RUF002", "RUF003",  # svenska tecken i strängar/kommentarer är avsiktliga
+    "N818",                        # undantagsnamn som AITaskFailed beskriver utfallet
+]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+plugins = ["pydantic.mypy"]
+# Autogenererade migreringar använder geoalchemy2:s dynamiskt registrerade op.*-funktioner.
+exclude = ["app/db/migrations/versions/"]
+
+[[tool.mypy.overrides]]
+module = ["celery.*", "geoalchemy2.*"]
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra"

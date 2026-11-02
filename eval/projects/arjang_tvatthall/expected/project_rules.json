@@ -1,0 +1,41 @@
+{
+  "source": "SPEC.md Bilaga A – Tvätthall Årjäng (Bengt Dahlgren, uppdrag 70250105), A.2",
+  "rules": [
+    {
+      "category": "tryckluft",
+      "text": "Tryckluft: O-ringar bytas till Viton (gröna)."
+    },
+    {
+      "category": "material",
+      "text": "Synliga ledningar i WC, städ, verkstad förkromade (K5)."
+    },
+    {
+      "category": "tillbehor",
+      "text": "Blandare utan inbyggd föravstängning förses med Ballofix."
+    },
+    {
+      "category": "isolering",
+      "text": "KV01 isoleras 30 mm diff.tät."
+    },
+    {
+      "category": "isolering",
+      "text": "VV01 isoleras 40 mm."
+    },
+    {
+      "category": "isolering",
+      "text": "L9 i tvätthall isoleras 30 mm."
+    },
+    {
+      "category": "isolering",
+      "text": "Synliga raka rör ytbeklädda med mönsterpräglad aluminiumplåt 0,2 mm."
+    },
+    {
+      "category": "isolering",
+      "text": "Kopplingsledningar isoleras ej inom rummet de betjänar."
+    },
+    {
+      "category": "tryckluft",
+      "text": "Avtappningsdon under alla horisontella stammar för L9."
+    }
+  ]
+}
