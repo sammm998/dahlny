@@ -206,7 +206,7 @@ def test_dahlny_key_wins_over_anthropic_key(monkeypatch: pytest.MonkeyPatch) -> 
 
     monkeypatch.setenv("DAHLNY_ANTHROPIC_API_KEY", "nyckel-dahlny")
     monkeypatch.setenv("ANTHROPIC_API_KEY", "nyckel-reserv")
-    key = Settings(_env_file=None).anthropic_api_key  # type: ignore[call-arg]
+    key = Settings(_env_file=None).anthropic_api_key
     assert key is not None and key.get_secret_value() == "nyckel-dahlny"
     assert "nyckel-dahlny" not in repr(key)  # värdet visas aldrig i loggar
 
@@ -216,7 +216,7 @@ def test_anthropic_key_is_the_fallback(monkeypatch: pytest.MonkeyPatch) -> None:
 
     monkeypatch.delenv("DAHLNY_ANTHROPIC_API_KEY", raising=False)
     monkeypatch.setenv("ANTHROPIC_API_KEY", "nyckel-reserv")
-    key = Settings(_env_file=None).anthropic_api_key  # type: ignore[call-arg]
+    key = Settings(_env_file=None).anthropic_api_key
     assert key is not None and key.get_secret_value() == "nyckel-reserv"
 
 
