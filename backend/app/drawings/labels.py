@@ -281,7 +281,9 @@ def read_page_labels(
     ai: AIClient | None,
     ocr: OcrReader | None,
     project_id: uuid.UUID | None = None,
+    max_tiles: int | None = None,
 ) -> PageLabels:
+    """max_tiles: läs bara de första N bitarna med bläck (provkörning för att uppskatta kostnad)."""
     th = load_thresholds()
     started = time.monotonic()
     dpi = int(th.get("tiles.dpi"))
@@ -293,12 +295,16 @@ def read_page_labels(
     run_ids: list[uuid.UUID] = []
     problems: list[str] = []
     skipped = 0
+    n_read = 0
     ai_ok = ai is not None
     for tile in tiles:
         arr, png = render(page, tile.clip, dpi)
         if ink_fraction(arr, th.get("tiles.ink_threshold")) < th.get("tiles.blank_ink_fraction"):
             skipped += 1
             continue
+        if max_tiles is not None and n_read >= max_tiles:
+            break
+        n_read += 1
         if ocr is not None:
             for text, box, score in ocr.read(arr):
                 if score >= th.get("labels.ocr_min_score") and text.strip():
@@ -323,7 +329,7 @@ def read_page_labels(
     vision, ocr_reads = _dedupe(vision, dedupe), _dedupe(ocr_reads, dedupe)
     labels = _combine(page, vision, ocr_reads, ai if ai_ok else None, project_id, run_ids)
     elapsed = time.monotonic() - started
-    return PageLabels(page.number + 1, labels, len(tiles) - skipped, skipped, elapsed, run_ids, problems)
+    return PageLabels(page.number + 1, labels, n_read, skipped, elapsed, run_ids, problems)
 
 
 def _pair(
@@ -443,13 +449,28 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--out", type=Path, required=True)
     parser.add_argument("--no-ai", action="store_true")
     parser.add_argument("--no-ocr", action="store_true")
+    parser.add_argument("--model", help="modell för T5 och T5R i den här körningen (utan eskalering)")
+    parser.add_argument("--max-tiles", type=int, default=None, help="läs bara de första N bitarna med bläck")
+    parser.add_argument("--budget", type=float, default=None, help="kostnadstak i USD (standard: config)")
     args = parser.parse_args(argv)
 
     ai = None
     if not args.no_ai:
+        from app.config.settings import ModelsConfig, load_models_config
         from app.db.session import make_session_factory
 
-        ai = AIClient(make_session_factory())
+        config = load_models_config()
+        if args.model:
+            raw = config.model_dump()
+            for task in ("T5", "T5R"):
+                raw["tasks"][task]["model"] = args.model
+                raw["tasks"][task]["escalation"] = []
+            config = ModelsConfig.model_validate(raw)
+        budget = args.budget if args.budget is not None else config.cost_cap_usd_per_project
+        ai = AIClient(make_session_factory(), config=config, budget_usd=budget)
+        print(
+            f"T5-modell: {config.task('T5').model}, T5R: {config.task('T5R').model}, kostnadstak {budget} USD"
+        )
     ocr = None if args.no_ocr else RapidOcrReader()
     started = time.monotonic()
     out: dict[str, Any] = {}
@@ -457,7 +478,7 @@ def main(argv: list[str] | None = None) -> int:
     with open_pdf(args.pdf.read_bytes()) as pdf:
         pages = [int(p) for p in args.pages.split(",") if p] or list(range(1, len(pdf) + 1))
         for page_no in pages:
-            res = read_page_labels(pdf[page_no - 1], ai=ai, ocr=ocr)
+            res = read_page_labels(pdf[page_no - 1], ai=ai, ocr=ocr, max_tiles=args.max_tiles)
             run_ids += [str(r) for r in res.ai_run_ids]
             # nyckel = motorns 0-baserade sidindex, samma form som eval/tools/vvs_engine_text_rows.py
             out[str(page_no - 1)] = {
@@ -486,6 +507,7 @@ def main(argv: list[str] | None = None) -> int:
         cost = float(total or 0)
         print(f"AI-kostnad (uppskattad ur ai_run): {cost:.4f} USD för {len(run_ids)} anrop")
     out["_meta"] = {"seconds": round(time.monotonic() - started, 1), "ai_run_ids": run_ids, "cost_usd": cost,
+                    "model": ai.config.task("T5").model if ai is not None else None,
                     "ocr": None if ocr is None else ocr.name, "ai": ai is not None}  # fmt: skip
     args.out.write_text(json.dumps(out, ensure_ascii=False, indent=1), encoding="utf-8")
     print(f"Totalt {out['_meta']['seconds']} s. Rader: {args.out}")

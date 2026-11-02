@@ -275,3 +275,15 @@ def test_result_carries_run_id(session_factory: sessionmaker[Session]) -> None:
     result = make_client(session_factory, fake).structured_result("T0", "x", PingResult)
     [run] = runs(session_factory)
     assert result.run_id == run.id and result.served_model == PRIMARY and not result.cached
+
+
+def test_run_budget_stops_further_calls(session_factory: sessionmaker[Session]) -> None:
+    fake = FakeProvider({PRIMARY: [OK, OK]})
+    client = AIClient(
+        session_factory, config=make_config(), provider_factory=lambda _n: fake, budget_usd=0.00001
+    )
+    client.structured("T0", "första", PingResult)  # kostar 0.00002 USD
+    assert client.spent_usd == Decimal("0.000020")
+    with pytest.raises(CostCapExceeded, match="Körningens kostnadstak"):
+        client.structured("T0", "andra", PingResult)
+    assert len(fake.calls) == 1

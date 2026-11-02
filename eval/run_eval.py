@@ -108,7 +108,9 @@ def phase1_section(project_dir: Path, facit: ProjectFacit, use_ai: bool) -> list
         try:
             with get_engine().connect():
                 pass
-            ai = AIClient(make_session_factory())
+            from app.config.settings import load_models_config
+
+            ai = AIClient(make_session_factory(), budget_usd=load_models_config().cost_cap_usd_per_project)
             ai_note = "på (anrop loggas i ai_run; saknad nyckel syns som not_configured)"
         except OperationalError:
             ai_note = "av – databasen för ai_run nås inte (DATABASE_URL)"

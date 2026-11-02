@@ -184,7 +184,12 @@ class AIClient:
         provider_factory: ProviderFactory | None = None,
         prompts_dir: Path = PROMPTS_DIR,
         use_cache: bool = True,
+        budget_usd: float | None = None,
     ) -> None:
+        """budget_usd: tak för vad den här klienten får kosta totalt (t.ex. en mätkörning utan projekt).
+        Nås det kastas CostCapExceeded före nästa anrop – det redan gjorda står kvar i ai_run."""
+        self._budget = Decimal(str(budget_usd)) if budget_usd is not None else None
+        self.spent_usd = Decimal(0)
         self._sessions = session_factory
         self._config = config or load_models_config()
         self._providers = provider_factory or default_provider_factory(self._config)
@@ -192,6 +197,10 @@ class AIClient:
         self._use_cache = use_cache
 
     # ------------------------------------------------------------------ public API
+
+    @property
+    def config(self) -> ModelsConfig:
+        return self._config
 
     def structured[T: BaseModel](
         self,
@@ -374,6 +383,11 @@ class AIClient:
         return None
 
     def _check_cost_cap(self, project_id: uuid.UUID | None) -> None:
+        if self._budget is not None and self.spent_usd >= self._budget:
+            raise CostCapExceeded(
+                f"Körningens kostnadstak {self._budget} USD är nått ({self.spent_usd} USD). "
+                "Pausar – fråga användaren."
+            )
         if project_id is None:
             return
         cap = Decimal(str(self._config.cost_cap_usd_per_project))
@@ -435,6 +449,8 @@ class AIClient:
         with self._sessions() as session:
             session.add(run)
             session.commit()
+        if cost is not None:
+            self.spent_usd += cost
         return run.id
 
 

@@ -96,6 +96,6 @@ def test_manifest_lists_confidential_inputs() -> None:
 def test_run_eval_reads_facit(tmp_path: Path) -> None:
     module = runpy.run_path(str(REPO / "eval" / "run_eval.py"))
     report = tmp_path / "eval.md"
-    assert module["main"](["--report", str(report)]) == 0
+    assert module["main"](["--report", str(report), "--no-ai"]) == 0  # aldrig riktiga AI-anrop i tester
     text = report.read_text(encoding="utf-8")
     assert "arjang_tvatthall" in text and "ej mätt (fas 2)" in text

@@ -17,7 +17,7 @@ defaults:
   validation_retries: 1       # nytt försök med valideringsfelet bifogat, sedan eskalering
 
 # Kostnadstak per projekt (SPEC 7.2). Överskrids → AIClient vägrar nya anrop (CostCapExceeded).
-cost_cap_usd_per_project: 50.0
+cost_cap_usd_per_project: 30.0   # beslut 2026-11-02; används också som tak för mätkörningar utan projekt
 
 providers:
   anthropic:
