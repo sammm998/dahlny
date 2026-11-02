@@ -58,6 +58,23 @@ Oberoende kontroll med dörrbågar i A-underlaget (kvartscirklar, plan 1): radie
 0,79 / 0,88 / 1,08 m vid 1:50 (vanliga dörrblad) men 1,59 / 1,76 / 2,15 m vid 1:100. **Rätt skala är 1:50.**
 Alla motorns meter på planerna ska alltså halveras, och felet syntes inte utåt.
 
+Orsak (utredd 2026-11-02): den "omärkta skalstocken" är en **skrafferad EI30-vägg**. Motorns `find_tick_bar` tog
+skrafferingen för stockens delning, och regeln "stockens längd ska gå jämnt upp i meter" (2 % tolerans) godkände
+1:100 (655,2 pt → 23,1 m).
+
+**Åtgärd i motorn** (`sammm998/Dahlvvvs`, gren `claude/friendly-davinci-vuqjxl`):
+- Skalor knutna till format i stämpeln väljs efter sidans eget format (A0–A4 ur sidstorleken, båda
+  orienteringarna). En skala för ett annat format räknas om med formatsteget: 1:100 (A3) blir 1:50 på A1.
+- `VERIFIED` kräver en oberoende mätning på bladet inom 1 % (märkt skalstock eller måttsättning). En omärkt stock
+  väljer och bekräftar inte längre någon skala.
+- Meter under en skala som inte är verifierad får radstatus `SCALE_UNVERIFIED` i stället för `CONFIRMED`.
+- Resultat på Årjäng: planerna får **1:50, overifierad** (det finns ingen märkt stock och ingen måttsättning);
+  flödesschemat får 1:50, verifierad mot sin märkta stock 0–2–5 m.
+- Lokal regression mot Årjäng-bladen ligger i motorns `data/local_facit/scale.json` (checkas inte in).
+
+VS-Kalkyls egen skalkontroll (`app/drawings/checks.py`) ligger kvar oförändrad som oberoende skydd. Den flaggar
+nu planerna för att skalan inte är verifierad, men inte längre för fel skala.
+
 ## 3. Mängder (motorns egna siffror, i motorns felaktiga skala)
 
 | Blad | Ritad | Bekräftad | Tvetydig | Otilldelad | Rader |
