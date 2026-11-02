@@ -108,6 +108,15 @@
       "subject": "B202B",
       "description": "B202B mot Prixel-artikel 142B1106 (rutgaller M125, vattenlås, ställben, skyddslock).",
       "expected_by_phase": 4
+    },
+    {
+      "id": "A3-12",
+      "number": 12,
+      "rule_id": "TITLEBLOCK_MISMATCH",
+      "severity": "info",
+      "subject": "skala W-50-8-1000",
+      "description": "Ritningsförteckningen anger skala '-' för W-50-8-1000 (flödesschema), titelblocket anger 1:50 (A1) / 1:100 (A3).",
+      "expected_by_phase": 1
     }
   ]
 }

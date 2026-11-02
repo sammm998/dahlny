@@ -78,7 +78,7 @@ blir det så här:
 | RA101 (plan; TB säger 2, A3-6) | – | 0 | 1 |
 | AV20 (4 uttag + avtappning) | 5 | 0 | 5 |
 | AV25 (kompressor + tappvatten) | 2 | 0 | 2 |
-| AV15 | 3 | 0 | **4** – kontrollera mot schemat |
+| AV15 (facit ändrat till 4 2026-11-02) | 4 | 0 | 4 |
 | BV15 / BV25 | 1 / 1 | 1 / 1 | 1 / 1 |
 | SIL101 | 1 | 0 | 1 |
 | ASS (BA), mätargrenar | 1, 2 | 0 | 0 |

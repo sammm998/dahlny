@@ -42,7 +42,7 @@ def test_children_reference_existing_parents(facit: ProjectFacit) -> None:
 
 def test_deviations_cover_appendix_a3(facit: ProjectFacit) -> None:
     devs = facit.deviations.deviations
-    assert sorted({d.number for d in devs}) == list(range(1, 12))
+    assert sorted({d.number for d in devs}) == list(range(1, 13))
     assert len({d.id for d in devs}) == len(devs)
     rule = {d.number: d.rule_id for d in devs}
     assert rule[1] == "TB_MENTIONED_NOT_ITEMIZED" and rule[5] == "MATERIAL_CODE_MISMATCH"
@@ -80,7 +80,7 @@ def test_label_kinds_agree_with_grammar(facit: ProjectFacit) -> None:
 
 def test_symbols_match_appendix_a5(facit: ProjectFacit) -> None:
     by_tag = {c.tag: c.count for c in facit.symbols.counts}
-    assert by_tag["B101P"] == 2 and by_tag["TRYCKLUFTSUTTAG"] == 4 and by_tag["AV15"] == 3
+    assert by_tag["B101P"] == 2 and by_tag["TRYCKLUFTSUTTAG"] == 4 and by_tag["AV15"] == 4
     assert facit.symbols.legend_tables == ["RÖRBETECKNINGAR", "FÖRKLARINGAR", "MATRIS FÖR ISOLERING"]
 
 

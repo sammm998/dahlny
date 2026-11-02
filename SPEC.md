@@ -804,6 +804,7 @@ Viktig egenskap: ritningarnas all text (utom några rumsnamn) är ritad som linj
 9. `TITLEBLOCK_MISMATCH` – ritningar uppdragsnr 70230105, TB 70250105.
 10. `DECIDE_WITH_CLIENT` – snabbkopplingstyp tryckluft/tappvatten; vattenmätarkonsol med kommunen.
 11. `ACCESSORY_NOT_CONFIRMED` – B202B mot Prixel-artikel 142B1106 (rutgaller M125, vattenlås, ställben, skyddslock).
+12. `TITLEBLOCK_MISMATCH` (info) – ritningsförteckningen anger skala "-" för W-50-8-1000, flödesschemats titelblock 1:50 (A1) / 1:100 (A3) (tillagd 2026-11-02).
 
 ### A.4 Etiketter som ska läsas (urval, tecken-exakt)
 
@@ -819,7 +820,7 @@ Obs: `W40`, `W`, `F` som suffix finns inte i legenden → ska ge `UNKNOWN_LABEL_
 
 - Golvbrunnar: B101P 2, B201B 1, B202B 1.
 - Tryckluftsuttag (schema): 3 i verkstad + 1 i tvätthall = 4, plus 1 avtappning (AV20) och AV25 vid kompressor.
-- Tappvatten (schema): SIL101 1, återströmningsskydd BA 1, backventiler BV15 1 och BV25 1, avstängningsventiler AV15 ×3 och AV25 ×1 på utkastare/högtryck/spolslangar, två parallella mätargrenar.
+- Tappvatten (schema): SIL101 1, återströmningsskydd BA 1, backventiler BV15 1 och BV25 1, avstängningsventiler AV15 ×4 (3 på utkastare/högtryck/spolslangar + 1 efter BV15 på KV01-15 före beredaren) och AV25 ×1, två parallella mätargrenar.
 - Legenden: RÖRBETECKNINGAR (material och system), FÖRKLARINGAR (kopplingsledningsdimensioner), MATRIS FÖR ISOLERING ska läsas in.
 
 ### A.6 Förväntad Prixel-rad (format, exempel från användaren)

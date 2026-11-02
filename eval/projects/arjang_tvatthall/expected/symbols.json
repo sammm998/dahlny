@@ -85,9 +85,9 @@
       "group": "tappvatten",
       "kind": "valve",
       "tag": "AV15",
-      "count": 3,
+      "count": 4,
       "source": "schematic",
-      "note": "På utkastare/högtryck/spolslangar"
+      "note": "På utkastare/högtryck/spolslangar (3) + 1 efter BV15 på KV01-15 före beredaren (beslut 2026-11-02)"
     },
     {
       "group": "tappvatten",
