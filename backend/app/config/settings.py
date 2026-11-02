@@ -31,13 +31,13 @@ class Settings(BaseSettings):
     s3_secret_key: str = "minioadmin"
     s3_bucket: str = "vs-kalkyl"
     ai_provider: ProviderName = "anthropic"
-    # Anthropic-nyckeln: DAHLNY_ANTHROPIC_API_KEY i första hand. ANTHROPIC_API_KEY är reserverad av Claude Code
-    # i molnmiljön och når inte sessionen där; den används bara som reserv (t.ex. på en egen dator).
+    # Anthropic-nyckeln: DAHLNY_ANTHROPIC_API_KEY i första hand. ANTHROPIC_API_KEY är reserverad av Claude
+    # Code i molnmiljön och når inte sessionen där; den används bara som reserv (t.ex. på en egen dator).
     anthropic_api_key: SecretStr | None = Field(
         default=None, validation_alias=AliasChoices("DAHLNY_ANTHROPIC_API_KEY", "ANTHROPIC_API_KEY")
     )
-    # Adressen sätts uttryckligen: SDK:n läser annars ANTHROPIC_BASE_URL, som i molnmiljön pekar på Claude Codes
-    # egen tjänst – nyckeln ska aldrig skickas dit.
+    # Adressen sätts uttryckligen: SDK:n läser annars ANTHROPIC_BASE_URL, som i molnmiljön pekar på Claude
+    # Codes egen tjänst – nyckeln ska aldrig skickas dit.
     anthropic_base_url: str = Field(
         default="https://api.anthropic.com", validation_alias=AliasChoices("DAHLNY_ANTHROPIC_BASE_URL")
     )

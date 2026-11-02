@@ -104,8 +104,7 @@ class AnthropicProvider:
             if "authentication" not in str(exc):
                 raise
             raise ProviderNotConfigured(
-                "Inga Anthropic-inloggningsuppgifter "
-                "(sätt DAHLNY_ANTHROPIC_API_KEY eller ANTHROPIC_API_KEY)"
+                "Inga Anthropic-inloggningsuppgifter (sätt DAHLNY_ANTHROPIC_API_KEY eller ANTHROPIC_API_KEY)"
             ) from exc
 
         raw: dict[str, Any] = message.model_dump(mode="json")
