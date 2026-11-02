@@ -52,13 +52,13 @@ frontend/             granskningsgränssnitt (från fas 3)
 
 | Fas | Innehåll | Status |
 | --- | --- | --- |
-| 0 | Repo, Docker, DB, CI, AIClient med loggning och cache, config-filer, facit | Klar; lyckat skarpt AI-anrop väntar på nyckel |
-| 1 | Intag, sidklassning, titelblock, ritningsförteckning | Byggd och testad; Bilaga A **9/23** utan AI – resten kräver T1/T2 (nyckel) |
+| 0 | Repo, Docker, DB, CI, AIClient med loggning och cache, config-filer, facit | Klar; `make ai-smoke` grön |
+| 1 | Intag, sidklassning, titelblock, ritningsförteckning | Klar: Bilaga A **23/23** med T1/T2 (9/23 med `--no-ai`), AI-kostnad ≈ 0,03 USD |
 | 6–8 | Ritningsmängder: integrera `vvs_engine` (SPEC 6.4.7) | Adapter + kontroller klara; utgångsmätning i [docs/vvs_engine_bilaga_a.md](docs/vvs_engine_bilaga_a.md) |
 
 Fas 1 på Bilaga A (`make eval`): TB, ritningsförteckning, format och uppdragsnummer läses deterministiskt.
-Planernas typ, ritningsnummer, skala och uppdragsnummer står bara i titelblock ritade som linjer och kräver
-vision (T2) – kör `make eval` igen när `DAHLNY_ANTHROPIC_API_KEY` finns.
+Planernas typ, ritningsnummer, skala och uppdragsnummer står bara i titelblock ritade som linjer och läses
+med vision (T2). Tester gör aldrig riktiga AI-anrop; `make eval` gör det när `DAHLNY_ANTHROPIC_API_KEY` finns.
 
 Ritningsmotorn: installera `sammm998/Dahlvvvs/engine` i en egen miljö och sätt `VVS_ENGINE_CMD`, t.ex.
 
