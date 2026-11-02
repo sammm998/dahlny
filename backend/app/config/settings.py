@@ -32,6 +32,7 @@ class Settings(BaseSettings):
     s3_bucket: str = "vs-kalkyl"
     ai_provider: ProviderName = "anthropic"
     config_dir: Path = CONFIG_DIR
+    storage_dir: Path = Path("storage")  # lokal fillagring (originalfiler, renderingar); S3/MinIO senare
 
 
 @lru_cache
@@ -172,6 +173,71 @@ class Thresholds(BaseModel):
         return float(node)
 
 
+# --------------------------------------------------------------------------- documents.yaml
+
+
+class DrawingNumberConfig(_Strict):
+    patterns: list[str]
+    examples_ok: list[str] = Field(default_factory=list)
+
+
+class ScaleConfig(_Strict):
+    ratio: str
+    none_markers: list[str]
+
+
+class PageKindRule(_Strict):
+    kind: Literal["tb", "drawing_list", "plan", "schematic", "section", "detail", "legend_only", "other"]
+    any_text: list[str] = Field(default_factory=list)
+    all_text: list[str] = Field(default_factory=list)
+
+    @model_validator(mode="after")
+    def _has_condition(self) -> PageKindRule:
+        if not self.any_text and not self.all_text:
+            raise ValueError(f"Regel för {self.kind} saknar villkor")
+        return self
+
+
+class DrawingListConfig(_Strict):
+    columns: dict[str, list[str]]
+    row_tolerance_fraction: float = Field(gt=0, le=2)
+    table_end_gap_factor: float = Field(gt=1)
+
+
+class DocumentsConfig(_Strict):
+    drawing_number: DrawingNumberConfig
+    scale: ScaleConfig
+    project_no: str
+    date: str
+    paper_sizes_mm: dict[str, tuple[float, float]]
+    paper_size_tolerance_mm: float
+    page_kind_rules: list[PageKindRule]
+    drawing_list: DrawingListConfig
+
+    @model_validator(mode="after")
+    def _patterns_compile(self) -> DocumentsConfig:
+        for pattern in [*self.drawing_number.patterns, self.scale.ratio, self.project_no, self.date]:
+            re.compile(pattern)
+        return self
+
+
+# --------------------------------------------------------------------------- drawings.yaml
+
+
+class VvsEngineConfig(_Strict):
+    command: list[str]
+    timeout_s: float = Field(gt=0)
+    supported_artifact_schemas: list[int]
+    confidence_tiers: dict[str, float]
+    unknown_tier_confidence: float = Field(ge=0, le=1)
+    confirmed_states: list[str]
+    verified_scale_states: list[str]
+
+
+class DrawingsConfig(_Strict):
+    vvs_engine: VvsEngineConfig
+
+
 # --------------------------------------------------------------------------- loaders
 
 
@@ -194,6 +260,16 @@ def load_label_grammar() -> LabelGrammar:
 @lru_cache
 def load_reference_tables() -> ReferenceTables:
     return ReferenceTables.model_validate(_load_yaml("reference_tables.yaml"))
+
+
+@lru_cache
+def load_documents_config() -> DocumentsConfig:
+    return DocumentsConfig.model_validate(_load_yaml("documents.yaml"))
+
+
+@lru_cache
+def load_drawings_config() -> DrawingsConfig:
+    return DrawingsConfig.model_validate(_load_yaml("drawings.yaml"))
 
 
 @lru_cache

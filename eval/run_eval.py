@@ -77,8 +77,14 @@ def facit_summary(facit: ProjectFacit) -> list[tuple[str, str]]:
     return [
         ("SpecItems", f"{len(items)} ({children} barnposter)"),
         ("ProjectRules", str(len(facit.project_rules.rules))),
-        ("Avvikelser", f"{len(facit.deviations.deviations)} (A.3 nr 1–11, nr 10 i två delar)"),
-        ("Etiketter", f"{len(labels)} på {len(facit.labels.drawings)} ritningar ({unknown} med okänd token)"),
+        (
+            "Avvikelser",
+            f"{len(facit.deviations.deviations)} (A.3 nr 1–11, nr 10 i två delar)",
+        ),
+        (
+            "Etiketter",
+            f"{len(labels)} på {len(facit.labels.drawings)} ritningar ({unknown} med okänd token)",
+        ),
         (
             "Symbolantal",
             f"{len(facit.symbols.counts)} grupper, {len(facit.symbols.legend_tables)} legendtabeller",
@@ -112,7 +118,12 @@ def evaluate_project(project_dir: Path, require_inputs: bool) -> tuple[str, bool
             ok = False
     lines.append("")
 
-    lines += ["### Mått (SPEC 11.2)", "", "| Mått | Gräns | Resultat |", "| --- | --- | --- |"]
+    lines += [
+        "### Mått (SPEC 11.2)",
+        "",
+        "| Mått | Gräns | Resultat |",
+        "| --- | --- | --- |",
+    ]
     lines += [f"| {m.name} | {m.limit} | ej mätt (fas {m.phase}) |" for m in METRICS]
     lines.append("")
     return "\n".join(lines), ok

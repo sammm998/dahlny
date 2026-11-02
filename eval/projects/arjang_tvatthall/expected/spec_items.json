@@ -358,7 +358,7 @@
   },
   "notes": [
     "Rad 'rör' är en sammanfattning av rörposterna (Enl ritn); detaljer mäts mot ritningsfacit.",
-    "SPEC 13 fas 2 anger '26 rader i facit' medan tabellen A.1 har 28 numrerade rader + rörraden. Facit följer tabellen; skillnaden ska klargöras med användaren (troligen rad 27–28, kyla).",
+    "Beslut 2026-11-02: facit har 28 rader enligt A.1 (kylaggregaten rad 27–28 ingår) plus rörraden; SPEC 13 fas 2 uppdaterad.",
     "Ballofix kan summeras till totalt 9 st i exporten (2 + 4 + 1 + 2)."
   ]
 }

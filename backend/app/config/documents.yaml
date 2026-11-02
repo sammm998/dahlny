@@ -1,0 +1,46 @@
+# Mönster för dokument, titelblock och ritningsförteckning (SPEC 6.1). Data, inte kod.
+# Fylls på per konsult via stilprofiler (SPEC 8).
+
+drawing_number:
+  # W-50-1-1000: disciplin-kategori-plan-löpnummer (Bengt Dahlgren / BSAB-liknande)
+  patterns:
+    - '(?<![A-Z0-9-])(?P<no>[A-Z]{1,2}-\d{2}-\d{1,2}-[A-Z]?-?\d{3,4})(?![0-9])'
+  examples_ok: [W-50-1-1000, W-53-1-0900, W-50-8-1000, W-50-1-A-0014]
+
+scale:
+  # "1:50 (A1) 1:100 (A3)", "1:50", "SKALA 1:50 (1:100)"; fall (1:100 vid rör) tolkas aldrig här –
+  # skala läses bara ur titelblock och ritningsförteckning.
+  ratio: '1\s*:\s*(?P<n>\d{1,5})(?:\s*\(\s*(?P<paper>A[0-4])\s*\))?'
+  none_markers: ['-', '–', 'INGEN', 'UTAN SKALA']
+
+project_no: '(?:UPPDRAG(?:S)?\s*NR|UPPDRAGSNUMMER)\s*:?\s*(?P<no>\d{6,10})'
+date: '(?P<date>20\d{2}-\d{2}-\d{2})'
+
+paper_sizes_mm:   # ISO 216, liggande eller stående avgörs mot sidans proportioner
+  A0: [841, 1189]
+  A1: [594, 841]
+  A2: [420, 594]
+  A3: [297, 420]
+  A4: [210, 297]
+paper_size_tolerance_mm: 3
+
+page_kind_rules:  # deterministiska regler för sidklassning (SPEC 6.1.4), i prioritetsordning.
+  # AI (T1) är den andra, oberoende vägen. Matchning utan hänsyn till versaler/gemener.
+  - kind: drawing_list
+    any_text: [RITNINGSFÖRTECKNING, HANDLINGSFÖRTECKNING]
+  - kind: tb
+    any_text: [TEKNISK BESKRIVNING, RAMBESKRIVNING]
+  - kind: tb
+    all_text: [KOD, TEXT, MÄNGD, ENHET]   # AMA-beskrivningens kolumnrubriker
+
+drawing_list:   # SPEC 6.1.6 – kolumnrubriker i ritningsförteckningen (versaler, ett eller flera ord)
+  columns:
+    drawing_no: [RITNINGSNUMMER, RITNINGSNR, RITN.NR, RITN NR]
+    revision: [BET, REV]
+    status: [STAT, STATUS]
+    title: [RITNINGENS INNEHÅLL, INNEHÅLL, BENÄMNING]
+    scale: [SKALA]
+    date: [RITNINGSDATUM, DATUM]
+    changed: [ÄNDRINGSDATUM, ÄNDR.DATUM]
+  row_tolerance_fraction: 0.6   # ord på samma rad: y-avstånd ≤ andel av ordhöjden
+  table_end_gap_factor: 4       # tabellen slutar där radavståndet blir > N × medianavståndet (sidfot)

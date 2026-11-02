@@ -1,0 +1,18 @@
+# Ritningsmängder från extern motor (SPEC 6.4.7). Data, inte kod.
+
+vvs_engine:
+  # Motorn körs som egen process i sin egen miljö (separat venv eller container), så att dess beroenden inte
+  # blandas med VS-Kalkyls. Kommandot kan överstyras med miljövariabeln VVS_ENGINE_CMD.
+  command: [vvs-takeoff]
+  timeout_s: 1800
+  supported_artifact_schemas: [3]
+  # Motorns `confidence_tier` per rör → VS-Kalkyls konfidens 0–1. Ska kalibreras mot facit (fas 7).
+  # Okänd nivå → 0.5 och flagga, aldrig ett påhittat högt värde.
+  confidence_tiers:
+    verified: 0.95
+    inferred: 0.8
+    weak: 0.6
+  unknown_tier_confidence: 0.5
+  # Motorns evidence_state → hur raden behandlas
+  confirmed_states: [CONFIRMED]
+  verified_scale_states: [VERIFIED]

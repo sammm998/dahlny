@@ -420,6 +420,25 @@ Varje analyserad ritning ska kunna exporteras som en **markerad PDF** – samma 
 - Export för vektor- och rasterunderlag på samma sätt (för foton i den korrigerade bildens koordinater, med originalfotot som bilaga).
 - Export även som Excel/CSV av mängdlistan, och vid behov Bluebeam-markeringslista (CSV) **[ÖPPEN FRÅGA: används Bluebeam eller Wikells hos Dahl?]**.
 
+#### 6.4.7 Ritningsmängder från vvs_engine (`DrawingQuantitySource`)
+
+Mängdningen i 6.4.1–6.4.4 implementeras i första hand av `vvs_engine` (beslut 2026-11-02, se 7.5). Adaptern:
+
+- anropar motorn som separat process (`vvs-takeoff analyze`) eller som bibliotek, och läser dess artefakter
+  (`physical-pipes.json`, `quantities.json`, `drawing-legend.json`, `vector-designations.json`, …) med kontroll av
+  `artifact_schema`;
+- mappar motorns `PhysicalPipe` till `PipeRun` (system × material × dim, horisontell/lodrät längd, konfidens) och
+  dess stammar och taggar till `Symbol`;
+- behåller motorns evidenskedja i `source_refs` (sida, bbox, `method="vvs_engine"`, motorversion, pipe-id,
+  ankare/ledare/källbanor), så att varje meter kan klickas fram till sina streck;
+- översätter motorns tillstånd: `CONFIRMED` → konfidens enligt motorns egen bedömning, `AMBIGUOUS`/otilldelat →
+  egna rader för granskning, och skala som inte är `VERIFIED` → sidan blockeras (6.4.3 f.4). Ingen meter räknas
+  om eller rättas tyst i adaptern;
+- kör alltid VS-Kalkyls egna kontroller ovanpå motorns resultat: skala mot titelblock och pappersstorlek (6.4.3 f),
+  okända tokens mot projektets legend (6.4.3 d), otilldelad andel (6.4.3 h.5).
+
+Gap mellan motorn och 6.4 åtgärdas i fas 6–8 och 9–11, antingen i motorn eller i VS-Kalkyl ovanpå den.
+
 ### 6.5 Avstämnings- och avvikelsemotor
 
 Regler är Python-funktioner registrerade med id, allvarlighetsgrad och testfall. Minst följande i v1:
@@ -545,6 +564,8 @@ Promptar ligger som versionerade filer i `app/ai/prompts/{task_id}/v{n}.md`. Var
 - Varje provider kräver separat granskning av avtal, dataplacering och om indata används för träning (kap 10).
 
 **Beslutspunkt: bygga eller köpa ritningsdelen.** FutureCalc gör i stort det som 6.4 beskriver för PDF (enligt deras egen sida: endast PDF, automatisk markering av läsbara ritningar, manuell mängdning på skannade/fotograferade). Innan fas 6 startar: testa FutureCalc på Bilaga A och 2–3 facitprojekt. Om resultatet når gränserna i 11.2 kan ritningsdelen ersättas med import av deras export (XLSX/CSV) via en adapter `DrawingQuantitySource`, och detta system fokuserar på TB, avstämning, matchning, Prixel och förfrågningar – där FutureCalc inte verkar täcka Dahls behov. Bygg därför 6.5 så att mängder kan komma från egen analys **eller** extern källa.
+
+**Beslut 2026-11-02:** ritningsdelen byggs inte på nytt. Den befintliga motorn `vvs_engine` (repo `sammm998/Dahlvvvs`) integreras som första implementation av `DrawingQuantitySource` (6.4.7). FutureCalc kan läggas till senare som en andra källa bakom samma adapter. Motorns egna AI-anrop (OpenAI-"second reader", vision-endpoint) används inte – AI i VS-Kalkyl går alltid via `app/ai/` (kap 7.2).
 
 ---
 
@@ -687,20 +708,20 @@ Konventioner: typannoteringar överallt, `ruff` + `mypy --strict` i backend, `es
 | --- | --- | --- |
 | 0 | Repo, Docker, DB, CI, AIClient med loggning och cache, config-filer | `make test` grönt; ett AI-testanrop loggas i `AIRun` |
 | 1 | Intag, sidklassning, titelblock, ritningsförteckning | Bilaga A: alla 5 dokument/sidor rätt klassade, ritningsnr och skala lästa |
-| 2 | TB-extraktion inkl. barnposter, validering, fullständighetskontroll | Bilaga A: alla 26 rader i facit, inga påhittade; golvränna-avvikelsen hittas |
+| 2 | TB-extraktion inkl. barnposter, validering, fullständighetskontroll | Bilaga A: alla 28 rader enligt A.1 (inkl. barnposter och kylaggregaten rad 27–28) plus rörraden, inga påhittade; golvränna-avvikelsen hittas |
 | 3 | Regelmotor (TB-regler) + granskningsvy för TB och avvikelser | Bilaga A: avvikelser 1–4, 7–9 i A.3 hittas |
 | 4 | Artikelregister-import + matchning + Prixel-export (Excel/urklipp) | Med testregister: rätt utfall för alla rader med RSK |
 | 5 | Leverantörsmail (utkast) + svarsextraktion | Furhoffs-utkast för Bilaga A innehåller B201B, B202B, TS501 och frågorna |
-| 6 | Ritning väg C: vektorer, glyfkluster, etikettläsning (vision + OCR), grammatik, legend | Bilaga A: alla etiketter i A.4 lästa tecken-exakt eller flaggade |
-| 7 | Skala, graf, tilldelning, propagering, PipeRuns, ritningsvy med overlay | Syntetiska ritningar ±0,5 %; Bilaga A ≤ 2 % otilldelat |
-| 8 | Symboler, flödesschema-avstämning, lodräta längder, rördelar, isolering | Bilaga A: avvikelser 5–6 hittas; symbolantal enligt A.5 |
+| 6 | Ritning väg C – **integrera vvs_engine** via `DrawingQuantitySource` (6.4.7); mät dess etikettläsning, grammatik och legend mot facit; åtgärda gapen: vision (T5) + OCR som oberoende läsningar, flaggade teckenförväxlingar, `unknown_token`, FÖRKLARINGAR och MATRIS FÖR ISOLERING | Bilaga A: alla etiketter i A.4 lästa tecken-exakt eller flaggade |
+| 7 | **Integrera vvs_engine:s** skala, graf, tilldelning, propagering och mätning → PipeRuns; mät mot facit och åtgärda gapen (skalval mot sidans pappersstorlek och två oberoende metoder, `ENTR. GRÄNS`, kopplingsledningar ur FÖRKLARINGAR); ritningsvy med overlay | Syntetiska ritningar ±0,5 %; Bilaga A ≤ 2 % otilldelat |
+| 8 | **Integrera vvs_engine:s** stamräkning och lodräta längder → Symbol/PipeRun; mät mot facit och komplettera det som saknas i motorn: VVS-symboler per typ mot legend, flödesschema-igenkänning och -avstämning, rördelar, isolering | Bilaga A: avvikelser 5–6 hittas; symbolantal enligt A.5 |
 | 9 | Väg B (DXF/DWG) och väg A (IFC) | Syntetiska DXF/IFC exakta |
 | 10 | Stilprofiler + inlärningsläge + korrigeringsåterföring | Andra konsultens facitprojekt klarar 11.2 |
 | 6b | Markerad PDF-export (6.4.6) + Excel-mängdlista | Bilaga A: markerad PDF öppnas i Adobe/Bluebeam, alla rör färgade, summering på första sidan |
 | 11 | Väg D och E (skanning, bild, foto) inkl. förbehandling, rastervektorisering, halvmanuell spårning | Bilaga A renderad till 200 dpi-bild och fotograferad version: ±5 % rörmeter efter granskning, alla etiketter lästa eller flaggade |
 | 12 | Utvärderingsrapport, härdning, SSO, drift | `make eval` rapport på alla facitprojekt |
 
-Fas 1–5 ger nytta direkt (motsvarar dagens manuella arbete). Fas 6–8 är ritningsmängdningen.
+Fas 1–5 ger nytta direkt (motsvarar dagens manuella arbete). Fas 6–8 är ritningsmängdningen, som **inte byggs från grunden**: den befintliga motorn `vvs_engine` (repo `sammm998/Dahlvvvs`) integreras, mäts mot facit och kompletteras där den inte når gränserna i 11.2 (beslut 2026-11-02). Utgångsmätningen på Bilaga A finns i `docs/vvs_engine_bilaga_a.md`. Acceptansgränserna i 11.2 gäller oförändrat för motorns resultat.
 
 ---
 
@@ -722,7 +743,7 @@ Fas 1–5 ger nytta direkt (motsvarar dagens manuella arbete). Fas 6–8 är rit
 
 ## 15. Bilaga A – Testfall: Nybyggnad tvätthall/verkstad samt carport, Årjängs Bostads AB
 
-Underlag: `11.5 Teknisk Beskrivning VS.pdf` (37 s, Bengt Dahlgren Karlstad AB, uppdrag 70250105, 2025-09-15, AMA VVS & Kyla 22) och `12.4 Ritningar VS.pdf` (4 s: ritningsförteckning, W-50-1-1000 Plan 1, W-53-1-0900 Plan 0 i mark, W-50-8-1000 Flödesschema VS; skala 1:50 (A1) / 1:100 (A3), plottad som A4).
+Underlag: `11.5 Teknisk Beskrivning VS.pdf` (37 s, Bengt Dahlgren Karlstad AB, uppdrag 70250105, 2025-09-15, AMA VVS & Kyla 22) och `12.4 Ritningar VS.pdf` (4 s: ritningsförteckning, W-50-1-1000 Plan 1, W-53-1-0900 Plan 0 i mark, W-50-8-1000 Flödesschema VS; skala 1:50 (A1) / 1:100 (A3)). Obs (uppmätt 2026-11-02): ritningsförteckningen är A4, men sidorna 2–4 är **A1** (2384 × 1684 pt), så `1:50 (A1)` gäller direkt på sidorna – bekräftat med dörrbågar i A-underlaget (0,8–1,1 m vid 1:50).
 
 Viktig egenskap: ritningarnas all text (utom några rumsnamn) är ritad som linjer → testar etikettläsning via vision.
 
