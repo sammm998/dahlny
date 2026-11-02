@@ -24,6 +24,11 @@ Indata för testprojektet (Bilaga A) är konfidentiella och ligger inte i repot 
 backend/app/config/   models.yaml, thresholds.yaml, label_grammar.yaml, reference_tables.yaml, settings.py
 backend/app/db/       SQLAlchemy-modeller (SPEC 5) + Alembic-migreringar
 backend/app/ai/       AIClient, adaptrar (anthropic, openai, google-stub, fake), scheman, promptar
+backend/app/ingest/  filtyp, ZIP, format per sida, rendering, lagring
+backend/app/classify/ sidklassning (regler + T1), titelblock (textlager + T2), ritningsförteckning
+backend/app/pipeline/ fas 1-flödet (python -m app.pipeline.phase1)
+backend/app/drawings/ DrawingQuantitySource, vvs_engine-adapter, skal-/token-/täckningskontroller
+backend/app/tb/      TB-hjälp (måttnormalisering)
 backend/app/api/      REST-endpoints
 backend/app/jobs/     Celery
 backend/tests/        pytest (riktig Postgres)
@@ -35,9 +40,17 @@ frontend/             granskningsgränssnitt (från fas 3)
 
 | Fas | Innehåll | Status |
 | --- | --- | --- |
-| 0 | Repo, Docker, DB, CI, AIClient med loggning och cache, config-filer, facit | Klar (se nedan) |
-| 1 | Intag, sidklassning, titelblock, ritningsförteckning | – |
+| 0 | Repo, Docker, DB, CI, AIClient med loggning och cache, config-filer, facit | Klar; lyckat skarpt AI-anrop väntar på nyckel |
+| 1 | Intag, sidklassning, titelblock, ritningsförteckning | Byggd och testad; Bilaga A **9/23** utan AI – resten kräver T1/T2 (nyckel) |
+| 6–8 | Ritningsmängder: integrera `vvs_engine` (SPEC 6.4.7) | Adapter + kontroller klara; utgångsmätning i [docs/vvs_engine_bilaga_a.md](docs/vvs_engine_bilaga_a.md) |
 
-**Fas 0 – kvar att verifiera med riktig nyckel:** `make test` är grönt (55 tester, mot PostgreSQL 16 +
-PostGIS 3.4). AI-anropet loggas i `ai_run` även när det misslyckas. Ett *lyckat* skarpt anrop kräver
-`ANTHROPIC_API_KEY`; kör `make ai-smoke`.
+Fas 1 på Bilaga A (`make eval`): TB, ritningsförteckning, format och uppdragsnummer läses deterministiskt.
+Planernas typ, ritningsnummer, skala och uppdragsnummer står bara i titelblock ritade som linjer och kräver
+vision (T2) – kör `make eval` igen när `ANTHROPIC_API_KEY` finns.
+
+Ritningsmotorn: installera `sammm998/Dahlvvvs/engine` i en egen miljö och sätt `VVS_ENGINE_CMD`, t.ex.
+
+```bash
+python3.12 -m venv ~/.venvs/vvs-engine && ~/.venvs/vvs-engine/bin/pip install -e ../Dahlvvvs/engine
+export VVS_ENGINE_CMD=~/.venvs/vvs-engine/bin/vvs-takeoff
+```

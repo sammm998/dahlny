@@ -18,8 +18,8 @@ htmlcov/
 node_modules/
 frontend/dist/
 
-# Förfrågningsunderlag är konfidentiella (SPEC 10, 11.1) och repot är publikt:
-# indata checkas aldrig in. Placera filerna lokalt enligt eval/README.md.
+# Förfrågningsunderlag är konfidentiella (SPEC 10, 11.1): indata checkas aldrig in, oavsett om repot
+# är privat. Placera filerna lokalt enligt eval/README.md.
 eval/projects/*/input/*
 !eval/projects/*/input/MANIFEST.json
 eval/reports/

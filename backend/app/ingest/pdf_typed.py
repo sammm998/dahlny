@@ -25,3 +25,11 @@ def rect(bbox: Any) -> pymupdf.Rect:
 def png_bytes(pix: pymupdf.Pixmap) -> bytes:
     data: bytes = pix.tobytes("png")  # type: ignore[no-untyped-call]
     return data
+
+
+def page_textbox(page: pymupdf.Page, clip: pymupdf.Rect) -> str:
+    return str(page.get_textbox(clip))
+
+
+def open_pdf(data: bytes) -> pymupdf.Document:
+    return pymupdf.open(stream=data, filetype="pdf")  # type: ignore[no-untyped-call]

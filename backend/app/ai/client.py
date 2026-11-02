@@ -84,6 +84,18 @@ class _RunContext:
 
 
 @dataclass(frozen=True)
+class AIResult[T: BaseModel]:
+    """Svaret och om det godtogs. `accepted=False` betyder: giltigt men under tröskel i alla modeller."""
+
+    value: T
+    accepted: bool
+    model: str
+    served_model: str | None
+    run_id: uuid.UUID
+    cached: bool = False
+
+
+@dataclass(frozen=True)
 class Prompt:
     task_id: str
     version: str
@@ -186,6 +198,25 @@ class AIClient:
         project_id: uuid.UUID | None = None,
         context_blocks: Sequence[str] = (),
     ) -> T:
+        """Ett validerat svar, eller AITaskFailed. Se structured_result för konfidensstyrd eskalering."""
+        result = self.structured_result(
+            task_id, inputs, schema, project_id=project_id, context_blocks=context_blocks
+        )
+        return result.value
+
+    def structured_result[T: BaseModel](
+        self,
+        task_id: str,
+        inputs: str | Sequence[ContentPart],
+        schema: type[T],
+        *,
+        project_id: uuid.UUID | None = None,
+        context_blocks: Sequence[str] = (),
+        accept: Callable[[T], bool] | None = None,
+    ) -> AIResult[T]:
+        """Som structured, men med `accept`: ett giltigt svar som inte godtas (t.ex. för låg konfidens) loggas
+        som 'low_confidence' och nästa modell i kedjan tillfrågas (SPEC 7.1). Godtar ingen modell returneras
+        det sista giltiga svaret med accepted=False – anroparen flaggar för granskning, gissar inte."""
         task = self._config.task(task_id)
         prompt = load_prompt(task_id, task.prompt_version, self._prompts_dir)
         parts: tuple[ContentPart, ...] = (TextPart(inputs),) if isinstance(inputs, str) else tuple(inputs)
@@ -218,13 +249,14 @@ class AIClient:
                     prompt_version=prompt.version, input_hash=input_hash, attempt=0,
                     request_json={"cache_hit_of": str(run.id)},
                 )  # fmt: skip
-                self._log(
+                run_id = self._log(
                     ctx, "cached", served_model=run.served_model, response_json=run.response_json,
                     cost=Decimal(0), latency_ms=0,
                 )  # fmt: skip
-                return value
+                return AIResult(value, True, run.model, run.served_model, run_id, cached=True)
 
         failures: list[str] = []
+        unaccepted: AIResult[T] | None = None
         for model in chain:
             info = self._config.models[model]
             temperature = task.temperature if info.supports_temperature else None
@@ -287,8 +319,20 @@ class AIClient:
                     )
                     continue
                 response_json["parsed"] = value.model_dump(mode="json")
-                self._log(ctx, "ok", resp=resp, cost=cost, latency_ms=latency, response_json=response_json)
-                return value
+                if accept is not None and not accept(value):
+                    run_id = self._log(
+                        ctx, "low_confidence", resp=resp, cost=cost, latency_ms=latency,
+                        response_json=response_json, error="Giltigt svar men under uppgiftens tröskel",
+                    )  # fmt: skip
+                    failures.append(f"{model}#{attempt}: low_confidence")
+                    unaccepted = AIResult(value, False, model, resp.served_model, run_id)
+                    break  # samma modell igen ger samma svar – nästa modell i kedjan
+                run_id = self._log(
+                    ctx, "ok", resp=resp, cost=cost, latency_ms=latency, response_json=response_json
+                )
+                return AIResult(value, True, model, resp.served_model, run_id)
+        if unaccepted is not None:
+            return unaccepted
         raise AITaskFailed(task_id, failures)
 
     def project_cost_usd(self, project_id: uuid.UUID) -> Decimal:
@@ -359,8 +403,9 @@ class AIClient:
         cost: Decimal | None = None,
         latency_ms: int | None = None,
         error: str | None = None,
-    ) -> None:
+    ) -> uuid.UUID:
         run = AIRun(
+            id=uuid.uuid4(),
             project_id=ctx.project_id,
             step=ctx.step,
             provider=ctx.provider,
@@ -386,6 +431,7 @@ class AIClient:
         with self._sessions() as session:
             session.add(run)
             session.commit()
+        return run.id
 
 
 def _ms(started: float) -> int:

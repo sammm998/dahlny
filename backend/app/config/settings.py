@@ -204,6 +204,11 @@ class DrawingListConfig(_Strict):
     table_end_gap_factor: float = Field(gt=1)
 
 
+class TitleBlockConfig(_Strict):
+    regions: list[tuple[float, float, float, float]]
+    dpi: int = Field(gt=0)
+
+
 class DocumentsConfig(_Strict):
     drawing_number: DrawingNumberConfig
     scale: ScaleConfig
@@ -213,6 +218,7 @@ class DocumentsConfig(_Strict):
     paper_size_tolerance_mm: float
     page_kind_rules: list[PageKindRule]
     drawing_list: DrawingListConfig
+    title_block: TitleBlockConfig
 
     @model_validator(mode="after")
     def _patterns_compile(self) -> DocumentsConfig:

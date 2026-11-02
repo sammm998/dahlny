@@ -93,3 +93,27 @@ def test_enum_check_constraint_rejects_unknown_value(session_factory: sessionmak
         s.add(Document(project_id=project.id, filename="x", format="docx", sha256="b" * 64))
         with pytest.raises((IntegrityError, StatementError)):
             s.flush()
+
+
+def test_migrations_downgrade_and_upgrade_cleanly() -> None:
+    """Varje migrering går att backa och köra igen (på en egen databas, så sessionens schema inte rörs)."""
+    import uuid as _uuid
+
+    from sqlalchemy import create_engine
+
+    from tests.conftest import run_alembic, test_database_url
+
+    base = test_database_url()
+    name = f"vskalkyl_migr_{_uuid.uuid4().hex[:8]}"
+    admin = create_engine(base.rsplit("/", 1)[0] + "/postgres", isolation_level="AUTOCOMMIT")
+    with admin.connect() as conn:
+        conn.execute(text(f'CREATE DATABASE "{name}"'))
+    url = base.rsplit("/", 1)[0] + "/" + name
+    try:
+        run_alembic(url, "upgrade", "head")
+        run_alembic(url, "downgrade", "base")
+        run_alembic(url, "upgrade", "head")
+    finally:
+        with admin.connect() as conn:
+            conn.execute(text(f'DROP DATABASE IF EXISTS "{name}" WITH (FORCE)'))
+        admin.dispose()

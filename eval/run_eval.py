@@ -92,7 +92,43 @@ def facit_summary(facit: ProjectFacit) -> list[tuple[str, str]]:
     ]
 
 
-def evaluate_project(project_dir: Path, require_inputs: bool) -> tuple[str, bool]:
+def phase1_section(project_dir: Path, facit: ProjectFacit, use_ai: bool) -> list[str]:
+    """Kör fas 1 på projektets indata och jämför med pages.json (SPEC 13, fas 1 DoD)."""
+    from app.evaluation.phase1 import score_phase1
+    from app.pipeline.phase1 import analyze_files, load_inputs
+
+    ai = None
+    ai_note = "av (--no-ai)"
+    if use_ai:
+        from sqlalchemy.exc import OperationalError
+
+        from app.ai.client import AIClient
+        from app.db.session import get_engine, make_session_factory
+
+        try:
+            with get_engine().connect():
+                pass
+            ai = AIClient(make_session_factory())
+            ai_note = "på (anrop loggas i ai_run; saknad nyckel syns som not_configured)"
+        except OperationalError:
+            ai_note = "av – databasen för ai_run nås inte (DATABASE_URL)"
+    paths = [project_dir / "input" / d.filename for d in facit.pages.documents]
+    result = analyze_files(load_inputs(paths), ai)
+    score = score_phase1(result, facit.pages)
+    lines = [
+        f"### Fas 1 – intag, sidklassning, titelblock ({score.passed}/{score.total})",
+        "",
+        f"AI: {ai_note}",
+        "",
+    ]
+    lines += ["| Kontroll | Resultat | Facit | Fick |", "| --- | --- | --- | --- |"]
+    for c in score.checks:
+        lines.append(f"| {c.name} | {'ok' if c.ok else '**FEL**'} | {c.expected} | {c.got} |")
+    lines.append("")
+    return lines
+
+
+def evaluate_project(project_dir: Path, require_inputs: bool, use_ai: bool = True) -> tuple[str, bool]:
     name = project_dir.name
     lines = [f"## {name}", ""]
     ok = True
@@ -118,6 +154,11 @@ def evaluate_project(project_dir: Path, require_inputs: bool) -> tuple[str, bool
             ok = False
     lines.append("")
 
+    if input_rows and all(status == "ok" for _, status in input_rows):
+        lines += phase1_section(project_dir, facit, use_ai)
+    else:
+        lines += ["### Fas 1", "", "ej mätt – indatafilerna finns inte lokalt (se eval/README.md)", ""]
+
     lines += [
         "### Mått (SPEC 11.2)",
         "",
@@ -137,6 +178,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--require-inputs", action="store_true", help="Saknade indatafiler ger fel")
     parser.add_argument("--projects-dir", type=Path, default=PROJECTS_DIR)
     parser.add_argument("--report", type=Path, default=REPORTS_DIR / "eval.md")
+    parser.add_argument("--no-ai", action="store_true", help="kör bara de deterministiska vägarna")
     args = parser.parse_args(argv)
 
     project_dirs = sorted(p for p in args.projects_dir.iterdir() if (p / "expected").is_dir())
@@ -148,7 +190,7 @@ def main(argv: list[str] | None = None) -> int:
 
     sections, all_ok = [], True
     for project_dir in project_dirs:
-        text, ok = evaluate_project(project_dir, args.require_inputs)
+        text, ok = evaluate_project(project_dir, args.require_inputs, use_ai=not args.no_ai)
         sections.append(text)
         all_ok &= ok
 

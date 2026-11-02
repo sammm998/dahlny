@@ -6,6 +6,7 @@ ingest:
   render_work_dpi: 300
   render_crop_dpi: 600
   classify_text_chars: 2000          # 6.1.4 – textlagrets första N tecken till T1
+  overview_max_px: 1568              # översiktsbild till T1: längsta sida i pixlar
   min_vector_paths_for_vector_page: 50
   raster_min_image_coverage: 0.6     # 6.1.2 – en bild som täcker ≥ 60 % av sidan = rasterunderlag
   raster_max_vector_paths: 50        # ... och få vektorer → pdf_raster; många vektorer ovanpå → pdf_mixed
@@ -17,7 +18,9 @@ classify:
   rule_confidence: 0.9               # deterministisk regel som slår till (t.ex. "RITNINGSFÖRTECKNING")
   ai_min_confidence: 0.8             # T1 under detta → eskalera, sedan granskning
   agreement_confidence: 0.98         # regel och AI överens
-  tb_min_ama_lines: 3                # sidor med minst så många AMA-kodrader räknas som TB
+  auto_accept_confidence: 0.85       # klassning/titelblock under detta → granskning
+  document_majority_fraction: 0.8    # oklassad sida ärver dokumentets typ om minst så stor andel delar den
+  document_inherit_confidence: 0.85
 
 raster_quality:
   min_text_height_px: 20             # 6.4.4 – lägre → endast manuell mängdning

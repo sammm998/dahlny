@@ -6,6 +6,7 @@ Schemat finns i `backend/app/evaluation/facit.py` och valideras av `make test` o
 
 | Fil | Innehåll | Bilaga |
 | --- | --- | --- |
+| `pages.json` | Dokument- och sidtyper, ritningsnr, skala, uppdragsnr per sida, förteckningens rader, fas 1-avvikelser (titelblocken granskade visuellt) | A + fas 1 |
 | `spec_items.json` | Förväntade SpecItems inkl. barnposter (`parent_designation`) | A.1 |
 | `project_rules.json` | Generella krav (`ProjectRule`) | A.2 |
 | `deviations.json` | Förväntade avvikelser, med fas då de ska hittas | A.3 |

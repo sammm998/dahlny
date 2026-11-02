@@ -235,3 +235,43 @@ def test_project_id_is_recorded(session_factory: sessionmaker[Session]) -> None:
     client.structured("T0", "x", PingResult, project_id=pid)
     assert runs(session_factory)[0].project_id == pid
     assert client.project_cost_usd(pid) == Decimal("0.000020")
+
+
+def test_low_confidence_escalates_to_next_model(session_factory: sessionmaker[Session]) -> None:
+    unsure = {**OK, "confidence": 0.4}
+    fake = FakeProvider({PRIMARY: [unsure], ESCALATION: [OK]})
+    result = make_client(session_factory, fake).structured_result(
+        "T0", "indata", PingResult, accept=lambda r: r.confidence >= 0.8
+    )
+    assert result.accepted and result.model == ESCALATION and result.value.confidence == 0.99
+    assert [(r.model, r.status) for r in runs(session_factory)] == [
+        (PRIMARY, "low_confidence"),
+        (ESCALATION, "ok"),
+    ]
+    assert len(fake.calls) == 2  # ingen omfrågning av samma modell vid låg konfidens
+
+
+def test_unaccepted_everywhere_returns_flagged_result(session_factory: sessionmaker[Session]) -> None:
+    unsure = {**OK, "confidence": 0.4}
+    fake = FakeProvider({PRIMARY: [unsure], ESCALATION: [{**unsure, "confidence": 0.5}]})
+    result = make_client(session_factory, fake).structured_result(
+        "T0", "indata", PingResult, accept=lambda r: r.confidence >= 0.8
+    )
+    assert not result.accepted and result.value.confidence == 0.5  # sista svaret, flaggat – inte gissat
+    assert {r.status for r in runs(session_factory)} == {"low_confidence"}
+
+
+def test_low_confidence_answers_are_not_served_from_cache(session_factory: sessionmaker[Session]) -> None:
+    unsure = {**OK, "confidence": 0.4}
+    fake = FakeProvider({PRIMARY: [unsure, OK], ESCALATION: [unsure]})
+    client = make_client(session_factory, fake)
+    first = client.structured_result("T0", "x", PingResult, accept=lambda r: r.confidence >= 0.8)
+    second = client.structured_result("T0", "x", PingResult, accept=lambda r: r.confidence >= 0.8)
+    assert not first.accepted and second.accepted and not second.cached
+
+
+def test_result_carries_run_id(session_factory: sessionmaker[Session]) -> None:
+    fake = FakeProvider({PRIMARY: [OK]})
+    result = make_client(session_factory, fake).structured_result("T0", "x", PingResult)
+    [run] = runs(session_factory)
+    assert result.run_id == run.id and result.served_model == PRIMARY and not result.cached

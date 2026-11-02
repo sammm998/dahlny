@@ -14,6 +14,7 @@ make check        # lint + mypy --strict + pytest (= CI)
 make test         # bara pytest (kräver databas; TEST_DATABASE_URL)
 make eval         # utvärdering mot facit → eval/reports/eval.md
 make ai-smoke     # ett riktigt AI-anrop (T0) som loggas i ai_run
+cd backend && .venv/bin/python -m app.pipeline.phase1 --project X filer… [--no-ai] [--save]
 ```
 
 ## Kodkonventioner (SPEC 12 + 2)
@@ -35,9 +36,16 @@ make ai-smoke     # ett riktigt AI-anrop (T0) som loggas i ai_run
 - Schemaändringar: ändra `app/db/models.py`, generera migrering med
   `alembic revision --autogenerate`, och låt `tests/test_db.py::test_migrations_match_models` vara grön.
 
+## Ritningsmängder = vvs_engine
+
+Ritningsdelen (SPEC 6.4) byggs **inte** från grunden: motorn `vvs_engine` (repo `sammm998/Dahlvvvs`) körs som
+egen process via `app/drawings/vvs_engine.py` (`DrawingQuantitySource`, SPEC 6.4.7). Ändra inte motorns
+siffror i adaptern; lägg VS-Kalkyls egna kontroller i `app/drawings/checks.py`. Motorns egna AI-anrop används
+inte – AI går via `app/ai/`. Utgångsläge och gap: `docs/vvs_engine_bilaga_a.md`.
+
 ## Data och sekretess
 
-- Repot är **publikt**. Förfrågningsunderlag (TB, ritningar) checkas **aldrig** in – `eval/projects/*/input/`
+- Repot är privat, men förfrågningsunderlag (TB, ritningar) och nycklar checkas **aldrig** in – `eval/projects/*/input/`
   är gitignorerad utom `MANIFEST.json` (sha256). Facit (`expected/*.json`) checkas in.
 - Hemligheter bara i miljövariabler (`.env`, se `.env.example`).
 

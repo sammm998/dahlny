@@ -10,7 +10,7 @@ eval/
   run_eval.py                 # `make eval`
 ```
 
-Repot är publikt, så indatafilerna för Bilaga A läggs dit lokalt (de följer med `vs-kalkyl-start.zip`):
+Förfrågningsunderlag checkas aldrig in, så indatafilerna för Bilaga A läggs dit lokalt (de följer med `vs-kalkyl-start.zip`):
 
 ```bash
 cp 11_5_Teknisk_Beskrivning_VS.pdf 12_4_Ritningar_VS.pdf prixel_exempelrad_B202B.png tb_utdrag_PRB12.png \
@@ -19,3 +19,7 @@ cp 11_5_Teknisk_Beskrivning_VS.pdf 12_4_Ritningar_VS.pdf prixel_exempelrad_B202B
 
 `make eval` kontrollerar att filerna matchar `MANIFEST.json` (sha256) och skriver en rapport per projekt med
 måtten i SPEC 11.2. Mått vars pipeline-steg inte finns ännu redovisas som "ej mätt (fas N)" – aldrig som 0 %.
+
+När indata finns körs fas 1 på projektet och jämförs med `pages.json`. AI-anropen loggas i `ai_run`
+(kräver databasen); `make eval ARGS=--no-ai` – eller `python eval/run_eval.py --no-ai` – kör bara de
+deterministiska vägarna. `eval/tools/` innehåller mätskripten för ritningsmotorn.

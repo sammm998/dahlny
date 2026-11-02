@@ -318,6 +318,7 @@ class AIRun(TimestampedUUID, Base):
             "truncated",
             "api_error",
             "not_configured",
+            "low_confidence",
         )
     )
     error: Mapped[str | None] = mapped_column(sa.Text)

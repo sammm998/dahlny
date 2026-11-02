@@ -113,6 +113,58 @@ class SymbolsFacit(_Strict):
     notes: list[str] = Field(default_factory=list)
 
 
+class ExpectedDocument(_Strict):
+    filename: str
+    kind: str | None
+    pages: int
+    project_no: str | None = None
+    date: str | None = None
+    note: str | None = None
+
+
+class ExpectedPage(_Strict):
+    filename: str
+    page_no: int
+    kind: str
+    format: str
+    paper_size: str
+    drawing_no: str | None
+    level_name: str | None = None
+    scale_text: str | None
+    effective_scale: str | None = None
+    project_no: str | None
+    date: str | None
+
+
+class ExpectedListDrawing(_Strict):
+    drawing_no: str
+    title: str
+    scale_text: str
+
+
+class ExpectedDrawingList(_Strict):
+    page: dict[str, str | int]
+    project_no: str
+    drawings: list[ExpectedListDrawing]
+    documents: list[str]
+
+
+class ExpectedPhase1Deviation(_Strict):
+    rule_id: str
+    severity: Severity
+    subject: str
+    pages: list[int]
+    note: str
+
+
+class PagesFacit(_Strict):
+    source: str
+    documents: list[ExpectedDocument]
+    pages: list[ExpectedPage]
+    drawing_list: ExpectedDrawingList
+    expected_phase1_deviations: list[ExpectedPhase1Deviation]
+
+
 class InputFile(_Strict):
     filename: str
     sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
@@ -127,6 +179,7 @@ class InputManifest(_Strict):
 
 
 class ProjectFacit(_Strict):
+    pages: PagesFacit
     spec_items: SpecItemsFacit
     project_rules: ProjectRulesFacit
     deviations: DeviationsFacit
@@ -141,6 +194,7 @@ def _read(path: Path) -> object:
 
 def load_facit(expected_dir: Path) -> ProjectFacit:
     return ProjectFacit(
+        pages=PagesFacit.model_validate(_read(expected_dir / "pages.json")),
         spec_items=SpecItemsFacit.model_validate(_read(expected_dir / "spec_items.json")),
         project_rules=ProjectRulesFacit.model_validate(_read(expected_dir / "project_rules.json")),
         deviations=DeviationsFacit.model_validate(_read(expected_dir / "deviations.json")),

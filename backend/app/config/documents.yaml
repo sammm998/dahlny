@@ -26,8 +26,9 @@ paper_size_tolerance_mm: 3
 
 page_kind_rules:  # deterministiska regler för sidklassning (SPEC 6.1.4), i prioritetsordning.
   # AI (T1) är den andra, oberoende vägen. Matchning utan hänsyn till versaler/gemener.
-  - kind: drawing_list
+  - kind: drawing_list           # rubriken OCH tabellens kolumner – en TB som bara nämner förteckningen räknas inte
     any_text: [RITNINGSFÖRTECKNING, HANDLINGSFÖRTECKNING]
+    all_text: [RITNINGSNUMMER, INNEHÅLL]
   - kind: tb
     any_text: [TEKNISK BESKRIVNING, RAMBESKRIVNING]
   - kind: tb
@@ -44,3 +45,9 @@ drawing_list:   # SPEC 6.1.6 – kolumnrubriker i ritningsförteckningen (versal
     changed: [ÄNDRINGSDATUM, ÄNDR.DATUM]
   row_tolerance_fraction: 0.6   # ord på samma rad: y-avstånd ≤ andel av ordhöjden
   table_end_gap_factor: 4       # tabellen slutar där radavståndet blir > N × medianavståndet (sidfot)
+
+title_block:     # SPEC 6.1.5 – var titelblocket söks (andel av sidan: x0, y0, x1, y1), i prioritetsordning
+  regions:
+    - [0.855, 0.78, 1.0, 1.0]    # nedre högra hörnet (svensk standard, Bengt Dahlgren m.fl.)
+    - [0.70, 0.70, 1.0, 1.0]     # större hörn om det första inte innehöll något titelblock
+  dpi: 200

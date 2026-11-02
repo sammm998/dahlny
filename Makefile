@@ -55,7 +55,7 @@ typecheck:
 check: lint typecheck test
 
 eval:
-	$(PY) eval/run_eval.py
+	$(PY) eval/run_eval.py $(ARGS)
 
 ai-smoke: migrate
 	cd backend && $(PY) -m app.ai.smoke

@@ -1,0 +1,118 @@
+{
+  "source": "Bilaga A + titelblock granskade visuellt 2026-11-02 (renderade utsnitt, 200 dpi). Fas 1 DoD.",
+  "documents": [
+    {
+      "filename": "11_5_Teknisk_Beskrivning_VS.pdf",
+      "kind": "tb",
+      "pages": 37,
+      "project_no": "70250105",
+      "date": "2025-09-15"
+    },
+    {
+      "filename": "12_4_Ritningar_VS.pdf",
+      "kind": null,
+      "pages": 4,
+      "note": "blandat: förteckning, planer, schema"
+    }
+  ],
+  "pages": [
+    {
+      "filename": "12_4_Ritningar_VS.pdf",
+      "page_no": 1,
+      "kind": "drawing_list",
+      "format": "pdf_vector",
+      "paper_size": "A4",
+      "drawing_no": null,
+      "scale_text": null,
+      "project_no": "70250105",
+      "date": "2025-09-15"
+    },
+    {
+      "filename": "12_4_Ritningar_VS.pdf",
+      "page_no": 2,
+      "kind": "plan",
+      "format": "pdf_vector",
+      "paper_size": "A1",
+      "drawing_no": "W-50-1-1000",
+      "level_name": "PLAN 1",
+      "scale_text": "1:50 (A1) 1:100 (A3)",
+      "effective_scale": "1:50",
+      "project_no": "70230105",
+      "date": "2025-09-15"
+    },
+    {
+      "filename": "12_4_Ritningar_VS.pdf",
+      "page_no": 3,
+      "kind": "plan",
+      "format": "pdf_vector",
+      "paper_size": "A1",
+      "drawing_no": "W-53-1-0900",
+      "level_name": "PLAN 0",
+      "scale_text": "1:50 (A1) 1:100 (A3)",
+      "effective_scale": "1:50",
+      "project_no": "70230105",
+      "date": "2025-09-15"
+    },
+    {
+      "filename": "12_4_Ritningar_VS.pdf",
+      "page_no": 4,
+      "kind": "schematic",
+      "format": "pdf_vector",
+      "paper_size": "A1",
+      "drawing_no": "W-50-8-1000",
+      "level_name": null,
+      "scale_text": "1:50 (A1) 1:100 (A3)",
+      "effective_scale": "1:50",
+      "project_no": "70250105",
+      "date": "2025-09-15"
+    }
+  ],
+  "drawing_list": {
+    "page": {
+      "filename": "12_4_Ritningar_VS.pdf",
+      "page_no": 1
+    },
+    "project_no": "70250105",
+    "drawings": [
+      {
+        "drawing_no": "W-50-1-1000",
+        "title": "PLAN 1, MARKPLAN",
+        "scale_text": "1:50"
+      },
+      {
+        "drawing_no": "W-53-1-0900",
+        "title": "PLAN 0, I MARK",
+        "scale_text": "1:50"
+      },
+      {
+        "drawing_no": "W-50-8-1000",
+        "title": "FLÖDESSCHEMA VS",
+        "scale_text": "-"
+      }
+    ],
+    "documents": [
+      "Teknisk beskrivning"
+    ]
+  },
+  "expected_phase1_deviations": [
+    {
+      "rule_id": "TITLEBLOCK_MISMATCH",
+      "severity": "info",
+      "subject": "uppdragsnummer",
+      "pages": [
+        2,
+        3
+      ],
+      "note": "Planernas titelblock 70230105, TB och förteckning 70250105 (A.3 nr 9)"
+    },
+    {
+      "rule_id": "TITLEBLOCK_MISMATCH",
+      "severity": "info",
+      "subject": "skala W-50-8-1000",
+      "pages": [
+        4
+      ],
+      "note": "Förteckningen anger '-', titelblocket 1:50 (A1) / 1:100 (A3). Ny jämfört med A.3."
+    }
+  ]
+}
