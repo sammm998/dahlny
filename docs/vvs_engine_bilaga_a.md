@@ -12,8 +12,8 @@ skalkontroll blockerar planerna.
 
 | Område | Resultat | Krav (SPEC 11.2) |
 | --- | --- | --- |
-| Etiketter tecken-exakt | **29 / 88 (33 %)**; 41 / 88 (47 %) om O/0, Z/2, S/5, B/8, I/1 räknas som rätt | ≥ 98 %, resten flaggat |
-| Skala på planerna | **Fel: 1:100 vald, ska vara 1:50** – alla meter på W-50-1-1000 och W-53-1-0900 är 2× för stora, men står som `VERIFIED` | två metoder inom 1 % eller blockerat |
+| Etiketter tecken-exakt | **29 / 88 (33 %)** (34 / 88 efter rättelserna i avsnitt 2); 41 / 88 (47 %) om O/0, Z/2, S/5, B/8, I/1 räknas som rätt | ≥ 98 %, resten flaggat |
+| Skala på planerna | **Fel: 1:100 vald, ska vara 1:50** – alla meter på W-50-1-1000 och W-53-1-0900 är 2× för stora, men står som `VERIFIED`. *Rättat i motorn 2026-11-02, se avsnitt 2.* | två metoder inom 1 % eller blockerat |
 | Otilldelad rörlängd | Plan 1: 76 %, plan 0: 27 % (+17 % tvetydigt) | ≤ 2 % per sida |
 | Flödesschema | Känns inte igen som schema (skala `VERIFIED`, omdöme `INVALID`), komponenter räknas inte | – |
 | Legend RÖRBETECKNINGAR | 26 av koderna lästa (+1 skräprad), beskrivningar med `?` för `,` | läses in |
@@ -58,22 +58,32 @@ Oberoende kontroll med dörrbågar i A-underlaget (kvartscirklar, plan 1): radie
 0,79 / 0,88 / 1,08 m vid 1:50 (vanliga dörrblad) men 1,59 / 1,76 / 2,15 m vid 1:100. **Rätt skala är 1:50.**
 Alla motorns meter på planerna ska alltså halveras, och felet syntes inte utåt.
 
-Orsak (utredd 2026-11-02): den "omärkta skalstocken" är en **skrafferad EI30-vägg**. Motorns `find_tick_bar` tog
+Orsak (utredd 2026-11-02): motorns "omärkta skalstock" var en **skrafferad EI30-vägg**. `find_tick_bar` tog
 skrafferingen för stockens delning, och regeln "stockens längd ska gå jämnt upp i meter" (2 % tolerans) godkände
-1:100 (655,2 pt → 23,1 m).
+1:100 (655,2 pt → 23,1 m). Planerna har dessutom **samma märkta stock 0–1–2–5 METER** som flödesschemat (nere till
+höger, x 1636–1923 pt), men motorn hittade den inte där, av två skäl i textläsningen:
+- femman lästes som två `?`, eftersom planernas vanligaste textstorlek (4,5 pt legendtext) tog femmans nedre båge
+  som ett eget tecken;
+- en ensam `0` fick låna närliggande texts lutning (10°) och linjerade då inte med `2` och `5`.
 
-**Åtgärd i motorn** (`sammm998/Dahlvvvs`, gren `claude/friendly-davinci-vuqjxl`):
+**Åtgärd i motorn** (`sammm998/Dahlvvvs`, gren `claude/friendly-davinci-vuqjxl`, två commits):
 - Skalor knutna till format i stämpeln väljs efter sidans eget format (A0–A4 ur sidstorleken, båda
   orienteringarna). En skala för ett annat format räknas om med formatsteget: 1:100 (A3) blir 1:50 på A1.
 - `VERIFIED` kräver en oberoende mätning på bladet inom 1 % (märkt skalstock eller måttsättning). En omärkt stock
-  väljer och bekräftar inte längre någon skala.
-- Meter under en skala som inte är verifierad får radstatus `SCALE_UNVERIFIED` i stället för `CONFIRMED`.
-- Resultat på Årjäng: planerna får **1:50, overifierad** (det finns ingen märkt stock och ingen måttsättning);
-  flödesschemat får 1:50, verifierad mot sin märkta stock 0–2–5 m.
+  väljer och bekräftar inte längre någon skala. Meter under en skala som inte är verifierad får radstatus
+  `SCALE_UNVERIFIED` i stället för `CONFIRMED`.
+- Ensamma tecken tas efter att alla textstorlekar haft sin tur, det som innehåller flest streck först; ett tecken
+  med ett enda tecken hålls inte till sin lånade vinkel i stocksökningen.
+- Skraffering (många parallella, lika långa, tätt och jämnt placerade linjer utan numrering) blir aldrig
+  stockkandidat, även med siffror intill.
+- **Resultat på Årjäng:** alla tre bladen VERIFIED 1:50 mot stocken; EI30-väggen känns igen som skraffering;
+  etikettläsningen mot A.4 gick från 29 till 34 av 88 exakt. Motorns bekräftade meter: 58,46 m (före: 100,47 m
+  i fel skala), tvetydigt 1,66 m (före: 17,93 m).
 - Lokal regression mot Årjäng-bladen ligger i motorns `data/local_facit/scale.json` (checkas inte in).
+- Korpusgrinden (`engine/tools/corpus.py`) är inte körd – facitbladen finns inte i den här miljön.
 
-VS-Kalkyls egen skalkontroll (`app/drawings/checks.py`) ligger kvar oförändrad som oberoende skydd. Den flaggar
-nu planerna för att skalan inte är verifierad, men inte längre för fel skala.
+VS-Kalkyls egen skalkontroll (`app/drawings/checks.py`) ligger kvar oförändrad som oberoende skydd. Med motorns
+rättelser godkänner den alla tre bladen: motorns verifierade 1:50 stämmer med titelblockets 1:50 (A1).
 
 ## 3. Mängder (motorns egna siffror, i motorns felaktiga skala)
 

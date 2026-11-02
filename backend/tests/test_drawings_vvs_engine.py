@@ -257,17 +257,13 @@ BILAGA_A = Path(__file__).resolve().parents[2] / "eval/projects/arjang_tvatthall
     reason="integrationstest: kräver vvs_engine (VVS_ENGINE_CMD) och Bilaga A lokalt",
 )
 def test_real_engine_on_bilaga_a_scale(tmp_path: Path) -> None:
-    """Med motorns skalrättelse (Dahlvvvs, 2026-11-02): planerna mäts i 1:50 men är overifierade – ingen märkt
-    skalstock och ingen måttsättning på bladen. VS-Kalkyls kontroll ser rätt skala men blockerar tills en
-    oberoende mätning finns. Schemat har en märkt stock och verifieras."""
+    """Med motorns rättelser (Dahlvvvs, 2026-11-02): alla tre ritningsbladen mäts i 1:50, verifierat mot den
+    märkta skalstocken 0–1–2–5 METER. VS-Kalkyls oberoende skalkontroll håller med titelblocket."""
     takeoff = VvsEngineSource().analyze(BILAGA_A, tmp_path)
     assert len(takeoff.sheets) == 4
     declared = declared_scale_for_page(scale_ratios("1:50 (A1) 1:100 (A3)"), "A1")
-    plan1 = next(s for s in takeoff.sheets if s.page == 2)
-    assert plan1.scale is not None and plan1.scale.meters_per_pt == pytest.approx(m_per_pt(50), rel=1e-3)
-    findings = check_scale(plan1, declared)
-    assert [f.rule_id for f in findings] == ["SCALE_DISAGREEMENT"]
-    assert "inte verifierad" in findings[0].message  # rätt skala, men ingen oberoende mätning
-    assert all("state:SCALE_UNVERIFIED" in r.flags for r in plan1.pipe_runs)
-    schematic = next(s for s in takeoff.sheets if s.page == 4)
-    assert schematic.scale is not None and schematic.scale.verified
+    for page in (2, 3, 4):
+        sheet = next(s for s in takeoff.sheets if s.page == page)
+        assert sheet.scale is not None and sheet.scale.verified, (page, sheet.scale)
+        assert sheet.scale.meters_per_pt == pytest.approx(m_per_pt(50), rel=1e-3)
+        assert check_scale(sheet, declared) == [], page
