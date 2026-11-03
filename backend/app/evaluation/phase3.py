@@ -60,10 +60,12 @@ def score_deviations(got: list[DeviationDraft], expected_dir: Path, max_phase: i
     return out
 
 
-def report_lines(checks: list[DeviationCheck], got: list[DeviationDraft]) -> list[str]:
+def report_lines(
+    checks: list[DeviationCheck], got: list[DeviationDraft], title: str = "Fas 3 – avvikelser (A.3)"
+) -> list[str]:
     found = sum(c.found for c in checks)
     lines = [
-        f"### Fas 3 – avvikelser (A.3): {found}/{len(checks)} hittade",
+        f"### {title}: {found}/{len(checks)} hittade",
         "",
         "| A.3 | Regel | Ämne | Fas | Hittad | Meddelande |",
         "| --- | --- | --- | --- | --- | --- |",

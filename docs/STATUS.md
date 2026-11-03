@@ -12,7 +12,7 @@ Postgres efter omstart av containern: `pg_ctlcluster 16 main start`. `make check
 | 1 | klar | 23/23 kontroller (sidtyp, ritningsnr, skala, uppdragsnr, förteckning, TITLEBLOCK_MISMATCH) |
 | 2 | klar | 29/29 facitrader (28 + rör), 0 påhittade, RSK 28/28, art.nr 7/7, antal 28/28, golvränna hittad, generella krav 9/9; 0,33 USD |
 | 3 | klar (granskningsvyn byggs med UI:t) | A.3: 10/10 av avvikelserna fram till fas 3 (nr 1–4, 7–10, 12); 17 regler registrerade, 12 enhetstester |
-| 4 | ej påbörjad | |
+| 4 | klar | TESTDATA-register: 26/28 rätt utfall, 2 osäkra, 0 fel (92,9 %; 11.2 kräver ≥ 95 %, resten osäker); RSK-rader 6/6 (DoD); A3-11 hittas; Prixel Excel + urklipp |
 | 5 | ej påbörjad | |
 | 6–8 | delvis (motorn integrerad, se `docs/t5_bilaga_a.md`) | |
 | 6b | ej påbörjad | |
@@ -37,9 +37,18 @@ Postgres efter omstart av containern: `pg_ctlcluster 16 main start`. `make check
   TB_MENTIONED_NOT_ITEMIZED (T4), CONFLICTING_REQUIREMENTS (T3 v3, fältet `conflicts`).
 - `app/evaluation/phase3.py` + fas 3-sektion i `make eval`.
 
+## Fas 4 – vad som finns
+
+- `app/articles/register.py`: import CSV/Excel med kolumnmappning (`config/articles.yaml`), avvisar rader med skäl,
+  upsert till `article`. `app/articles/match.py`: RSK → leverantörens art.nr (+ fabrikat) → trigram (pg_trgm i
+  databasen, samma algoritm i minnet) → T6 (prompt v2, väljer bara bland kandidater) → utfall; tillbehör som TB säger
+  att produkten levereras med måste bekräftas (ACCESSORY_NOT_CONFIRMED → request).
+- `app/export/prixel.py`: Excel, urklipp (tabbar), API-stub (ÖPPEN FRÅGA 1). Kolumner i `config/prixel.yaml`.
+- `eval/projects/arjang_tvatthall/register/TESTDATA_artikelregister.csv` (påhittat) + `expected/matching.json`.
+
 ## Kvar / nästa steg
 
-Fas 4: artikelregister, matchning, Prixel-export.
+Fas 5: leverantörsförfrågningar.
 
 Nya ritningar (Higab): testade och delvis rättade, se `docs/nya_ritningar_higab.md` (otilldelat 76 %/62 %/97 %;
 kvar: täta knippen, för stor rörgeometri, demonteringsblad i mängdningen, rasterbladet väg D).

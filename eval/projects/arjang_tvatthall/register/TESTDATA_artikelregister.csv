@@ -1,0 +1,30 @@
+# TESTDATA – påhittat artikelregister för utvärdering av matchningen (SPEC 6.3). Inga riktiga priser, artikelnummer hos Dahl eller lagerstatusar. Leverantörernas art.nr och RSK är de som står i Bilaga A.
+Dahl art.nr;RSK;Leverantör;Leverantörens art.nr;Benämning;Lagerstatus;Enhet;Rabattgrupp;Tillbehör
+TEST-0001;;Furhoffs;142B1106;Golvbrunn FURO 142 rostfri EN1.4404 utlopp 110;virtuellt;st;TEST-DF;vattenlås
+TEST-0002;;Furhoffs;142B1100;Golvbrunn FURO 142 rostfri utan galler;virtuellt;st;TEST-DF;
+TEST-0003;;Furhoffs;152A;Sandfångsbrunn FURO 152 rostfri;beställningsvara;st;TEST-DF;vattenlås, sandfång
+TEST-0004;;Purus;BRAGE-PM;Golvbrunn Brage för plastmatta med klämring;lager;st;TEST-PU;vattenlås
+TEST-0005;7606418;IFÖ;23220;Tvättställ Cera 570x435;lager;st;TEST-IF;
+TEST-0006;7606400;IFÖ;23200;Tvättställ Cera 500x400;lager;st;TEST-IF;
+TEST-0007;;FMM;8060-0000;Ettgreppsblandare 9000E EcoSafe tvättställ;lager;st;TEST-FM;
+TEST-0008;8560167;FMM;S600017;Silventil tvättställ;lager;st;TEST-FM;
+TEST-0009;;Broen;BALLOFIX-15K;Avstängningsventil Ballofix förkromad med vred;lager;st;TEST-BR;
+TEST-0010;;Furo;40512H;Tvättränna 1200x451 rostfri EN 1.4301 utlopp höger;virtuellt;st;TEST-FU;
+TEST-0011;;FMM;8118-0010;Tvättränneblandare 9000E;lager;st;TEST-FM;
+TEST-0012;7811054;IFÖ;6261-0931-1010;WC Spira vit med sits;lager;st;TEST-IF;
+TEST-0013;7811050;IFÖ;6260;WC Spira golvmodell utan sits;lager;st;TEST-IF;
+TEST-0014;8036222;IFÖ;CU 44G;Utslagsback CU 44G;lager;st;TEST-IF;
+TEST-0015;;FMM;3160-0610;Spolblandare tvågrepp;lager;st;TEST-FM;
+TEST-0016;8188682;FMM;2099-1600;Blandarfäste 160cc;lager;st;TEST-FM;
+TEST-0017;4316698;FMM;4293-0600;Vattenutkastare frostsäker;virtuellt;st;TEST-FM;
+TEST-0018;;Nibe;EMINENT-55R;Varmvattenberedare Eminent 55 R;beställningsvara;st;TEST-NI;
+TEST-0019;;Armatec;AT 4003A;Smutsfilter AT 4003A DN25 rödgods;lager;st;TEST-AR;
+TEST-0020;;Armatec;AT 1168C25M;Återströmningsskydd BA AT 1168C25M DN25;lager;st;TEST-AR;
+TEST-0021;;Armatec;AT 1159;Backventil EA AT 1159 mässing;lager;st;TEST-AR;
+TEST-0022;;Armatec;AT3700;Kulventil AT3700;lager;st;TEST-AR;
+TEST-0023;;Beulco;BA 107;Kulventil Beulco BA 107 tryckluft;virtuellt;st;TEST-BE;
+TEST-0024;;Prevost;PCL-DN20;Tryckluftsuttag DN20 med snabbkoppling;beställningsvara;st;TEST-PR;
+TEST-0025;;Wafix;RR110-G;Rensrör grå PP med lock;lager;st;TEST-WA;
+TEST-0026;;Mitsubishi;MUZ-FT25VGHZ;Utedel värmepump MUZ-FT25VGHZ;beställningsvara;st;TEST-MI;
+TEST-0027;;Mitsubishi;MSZ-FT25VGK;Innedel värmepump MSZ-FT25VGK;beställningsvara;st;TEST-MI;
+TEST-0028;;Mitsubishi;DP-900;Markstativ DP-900;beställningsvara;st;TEST-MI;

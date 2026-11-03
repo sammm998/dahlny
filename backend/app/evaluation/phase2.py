@@ -44,6 +44,7 @@ class Phase2Score:
     golvranna_found: bool
     rules_found: list[tuple[str, bool]]
     flags: list[str]
+    matched: dict[str, ItemDraft] = field(default_factory=dict)  # facitradens ref → extraherad post
 
     @property
     def recall(self) -> float:
@@ -104,6 +105,7 @@ def score_phase2(result: TBResult, expected_dir: Path) -> Phase2Score:
     rules_facit = json.loads((expected_dir / "project_rules.json").read_text(encoding="utf-8"))["rules"]
     parents = {it.designation: it for it in result.items if it.kind == "object"}
     used: set[int] = set()
+    matched: dict[str, ItemDraft] = {}
     checks: list[ItemCheck] = []
     for f in facit:
         if f["ref"] == "rör":
@@ -114,6 +116,7 @@ def score_phase2(result: TBResult, expected_dir: Path) -> Phase2Score:
             it = parents.get(f["designation"])
             if it is not None:
                 used.add(id(it))
+                matched[f["ref"]] = it
             checks.append(_check(f, it))
             continue
         parent = parents.get(f["parent_designation"])
@@ -131,6 +134,7 @@ def score_phase2(result: TBResult, expected_dir: Path) -> Phase2Score:
                 best = (score, ch)
         if best:
             used.add(id(best[1]))
+            matched[f["ref"]] = best[1]
         checks.append(_check(f, best[1] if best else None))
     fabricated = [
         f"{x.parent_designation + ' > ' if x.parent_designation else ''}{x.designation or x.description}"
@@ -150,7 +154,7 @@ def score_phase2(result: TBResult, expected_dir: Path) -> Phase2Score:
             for x in result.rules
         )
         rules_found.append((r["text"], hit))
-    return Phase2Score(checks, fabricated, golv, rules_found, result.flags)
+    return Phase2Score(checks, fabricated, golv, rules_found, result.flags, matched)
 
 
 def report_lines(score: Phase2Score) -> list[str]:

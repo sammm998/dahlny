@@ -1,0 +1,20 @@
+# Export till Prixel (SPEC 6.7). ÖPPEN FRÅGA 1: Prixels importformat och fältens betydelse är inte bekräftade.
+# Kolumnerna nedan följer exempelraden i Bilaga A.6 (pos, art.nr, benämning, antal, enhet, rabattgrupp, leverantör).
+# Fält vars betydelse inte är känd (pris, nettopris, rabatt %, prisstatus) lämnas tomma och har rubriken "(okänt)".
+columns:
+  - {key: pos, title: Pos}
+  - {key: article_no, title: Art.nr}
+  - {key: name, title: Benämning}
+  - {key: price, title: Pris (okänt)}
+  - {key: unit, title: Enhet}
+  - {key: quantity, title: Antal}
+  - {key: discount_group, title: Rabattgrupp}
+  - {key: net_price, title: Nettopris (okänt)}
+  - {key: discount_pct, title: Rabatt % (okänt)}
+  - {key: price_status, title: Prisstatus (okänt)}
+  - {key: supplier, title: Leverantör}
+decimal_comma: true
+unit_map: {st: STK., m: M, kg: KG}
+# Fritextbeskrivning per rad: dimension plus de krav ur TB som nämner något av orden (deterministiskt, SPEC 6.7)
+description_keywords: [utlopp, EN1.4, EN 1.4, syrafast, rostfri, material, golvtyp, anslutning, tryckklass]
+description_max_lines: 3

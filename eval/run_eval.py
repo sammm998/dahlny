@@ -154,6 +154,60 @@ def phase3_section(project_dir: Path, state: dict[str, Any]) -> list[str]:
     return [*report_lines(score_deviations(devs, project_dir / "expected", 3), devs), ""]
 
 
+def phase4_section(project_dir: Path, ai: Any, results: dict[str, str], state: dict[str, Any]) -> list[str]:
+    """Artikelmatchning mot projektets TESTDATA-register (fas 4) och ACCESSORY_NOT_CONFIRMED (A.3 nr 11)."""
+    import json
+
+    from app.articles.match import MemoryArticleSource
+    from app.articles.pipeline import match_items, positions
+    from app.articles.register import read_register
+    from app.evaluation.phase2 import score_phase2
+    from app.evaluation.phase3 import report_lines as dev_lines
+    from app.evaluation.phase3 import score_deviations
+    from app.evaluation.phase4 import report_lines, score_matching
+    from app.export.prixel import ClipboardExporter, ExcelExporter
+    from app.pipeline.phase1 import cross_check
+    from app.rules.engine import RuleContext, run_rules
+
+    facit_path = project_dir / "expected" / "matching.json"
+    if "tb" not in state or not facit_path.exists():
+        return []
+    reg_file = project_dir / json.loads(facit_path.read_text(encoding="utf-8"))["register"]
+    reg = read_register(reg_file.read_bytes(), reg_file.name)
+    items = state["tb"].all_items()
+    matches = match_items(items, MemoryArticleSource(reg.rows), ai)
+    checks = score_matching(
+        matches, score_phase2(state["tb"], project_dir / "expected").matched, project_dir / "expected"
+    )
+    ok = sum(c.verdict == "ok" for c in checks)
+    unsure = sum(c.verdict == "osäker" for c in checks)
+    results["Artikelmatchning: rätt utfall"] = (
+        f"{100 * ok / len(checks):.1f} % ({ok}/{len(checks)}), {unsure} osäkra, "
+        f"{len(checks) - ok - unsure} fel"
+    )
+    ctx = RuleContext(
+        tb=state["tb"],
+        document=state["tb_document"],
+        phase1=cross_check(state["phase1"]),
+        accessories=[m.accessory for m in matches if m.accessory],
+    )
+    devs = run_rules(ctx)
+    pos = positions(items, matches)
+    out = REPORTS_DIR / project_dir.name
+    out.mkdir(parents=True, exist_ok=True)
+    (out / "prixel.xlsx").write_bytes(ExcelExporter().export(pos))
+    (out / "prixel_urklipp.txt").write_bytes(ClipboardExporter().export(pos))
+    acc = [c for c in score_deviations(devs, project_dir / "expected", 4) if c.phase == 4]
+    return [
+        *report_lines(checks),
+        "",
+        *dev_lines(acc, [], "Fas 4 – avvikelser (A.3 nr 11)"),
+        "",
+        f"Prixel-export: `eval/reports/{project_dir.name}/prixel.xlsx` och `prixel_urklipp.txt`.",
+        "",
+    ]
+
+
 def phase1_section(
     project_dir: Path, facit: ProjectFacit, ai: Any, ai_note: str, state: dict[str, Any]
 ) -> list[str]:
@@ -211,6 +265,7 @@ def evaluate_project(project_dir: Path, require_inputs: bool, use_ai: bool = Tru
         lines += phase1_section(project_dir, facit, ai, ai_note, state)
         lines += phase2_section(project_dir, facit, ai, results, state)
         lines += phase3_section(project_dir, state)
+        lines += phase4_section(project_dir, ai, results, state)
     else:
         lines += ["### Fas 1", "", "ej mätt – indatafilerna finns inte lokalt (se eval/README.md)", ""]
 

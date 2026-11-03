@@ -312,3 +312,44 @@ def load_thresholds() -> Thresholds:
 @lru_cache
 def load_rules_config() -> RulesConfig:
     return RulesConfig.model_validate(_load_yaml("rules.yaml"))
+
+
+class ArticleMatchConfig(_Strict):
+    rsk_score: float
+    art_no_score: float
+    stock_min_score: float
+    request_below_score: float
+    fuzzy_candidates: int
+    fuzzy_min_similarity: float
+
+
+class ArticlesConfig(_Strict):
+    columns: dict[str, list[str]]
+    required: list[str]
+    stock_values: dict[str, list[str]]
+    match: ArticleMatchConfig
+    accessories: dict[str, list[str]]
+    accessory_context: list[str]
+
+
+class PrixelColumn(_Strict):
+    key: str
+    title: str
+
+
+class PrixelConfig(_Strict):
+    columns: list[PrixelColumn]
+    decimal_comma: bool
+    unit_map: dict[str, str]
+    description_keywords: list[str]
+    description_max_lines: int
+
+
+@lru_cache
+def load_articles_config() -> ArticlesConfig:
+    return ArticlesConfig.model_validate(_load_yaml("articles.yaml"))
+
+
+@lru_cache
+def load_prixel_config() -> PrixelConfig:
+    return PrixelConfig.model_validate(_load_yaml("prixel.yaml"))

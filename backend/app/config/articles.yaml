@@ -1,0 +1,41 @@
+# Artikelregister (SPEC 6.3). ÖPPEN FRÅGA 2: affärssystemets exportformat är inte känt – importen tål därför
+# kolumnmappning: varje fält känns igen på någon av rubrikerna nedan (skiftläge och blanksteg spelar ingen roll).
+# Kolumner som inte känns igen sparas i attributes_json. En annan mappning kan ges vid import.
+columns:
+  dahl_art_no: [dahl art.nr, dahl artnr, artikelnummer, art.nr, artnr, artikel]
+  rsk: [rsk, rsk-nr, rsk nr, rsknummer]
+  supplier: [leverantör, leverantor, fabrikat, tillverkare]
+  supplier_art_no: [leverantörens art.nr, lev art.nr, lev. art.nr, leverantörsartikel, tillverkarens art.nr]
+  name: [benämning, benamning, namn, artikelbenämning, beskrivning]
+  stock_status: [lagerstatus, lager, status]
+  unit: [enhet, enh]
+  discount_group: [rabattgrupp, rabattgr, varugrupp]
+  accessories: [tillbehör, ingår, inkluderar]
+required: [dahl_art_no, name, stock_status]
+
+# lagerstatus i registret → stock | virtual | order. ÖPPEN FRÅGA 2: hur "virtuellt lager" markeras.
+stock_values:
+  stock: [lager, lagervara, i lager, stock, ja]
+  virtual: [virtuellt, virtuellt lager, virtual, leverantörslager]
+  order: [beställningsvara, beställ, order, nej, skaffvara]
+
+# matchningens trösklar (SPEC 6.3 steg 5)
+match:
+  rsk_score: 1.0
+  art_no_score: 0.98
+  stock_min_score: 0.95
+  request_below_score: 0.6
+  fuzzy_candidates: 20
+  fuzzy_min_similarity: 0.1
+
+# Tillbehör som TB kan kräva och som en artikel måste bekräfta (ACCESSORY_NOT_CONFIRMED). Ordet i TB-texten →
+# hur det kan stå i artikelns tillbehörslista eller benämning.
+accessories:
+  vattenlås: [vattenlås]
+  sandfång: [sandfång]
+  rutgaller M125: [rutgaller m125, galler m125]
+  ställben: [ställben]
+  skyddslock: [skyddslock]
+  galler 1500 kg: [galler 1500, 1500 kg]
+# Ett tillbehör krävs av artikeln bara när TB säger att produkten levereras med det (samma mening).
+accessory_context: [levereras med, försedd med, försedda med, förses med, inklusive, komplett med, utrustad med]
