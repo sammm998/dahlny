@@ -75,3 +75,36 @@ Postgres efter omstart av containern: `pg_ctlcluster 16 main start`. `make check
 
 Nya ritningar (Higab): testade och delvis rättade, se `docs/nya_ritningar_higab.md` (otilldelat 76 %/62 %/97 %;
 kvar: täta knippen, för stor rörgeometri, demonteringsblad i mängdningen, rasterbladet väg D).
+
+## Slutläge 2026-11-03 (för nästa session)
+
+**Mått SPEC 11.2 (Bilaga A, `make eval`):**
+- TB-recall 100 %, precision 100 % (0 påhittade).
+- RSK 28/28, art.nr 7/7, antal 28/28.
+- Matchning 92,9 % rätt, 2 osäkra, 0 fel. Gränsen är 95 %.
+- Etiketter 88/88.
+- Otilldelat 16,5 % och 16,2 % mot gränsen 2 %.
+- Skalan är verifierad.
+- Symboler: 7/11 exakta, 4 flaggade.
+- Rörmeter ±3 %: ej mätt, eftersom facit med manuell mätning saknas.
+
+**AI:** 11,75 av 50 USD. Draft-PR: sammm998/Dahlvvvs#1. dahlny har bara en gren, så ingen PR är möjlig.
+
+**Korpusgrinden (Dahlvvvs, gren `claude/t5-labels`, körs lokalt innan något slås ihop):**
+
+```bash
+python engine/tools/corpus.py run manifest.json /tmp/korpus_utan_t5 --jobs 4
+python engine/tools/corpus.py gate /tmp/korpus_utan_t5/corpus.json engine/tests/data/corpus_baseline.json
+python engine/tools/corpus.py run manifest.json /tmp/korpus_med_t5 --jobs 4 --labels
+python engine/tools/corpus.py gate /tmp/korpus_med_t5/corpus.json engine/tests/data/corpus_baseline.json --only-read
+```
+
+Faller grinden utan T5 kan omgångens regler slås av en i taget med `--rule`, t.ex.
+`pipeline.GENERIC_SYSTEM_LAYER=false` eller `pipes.ownership.DEAD_END_LABEL_KEEPS_DN=false`.
+
+**Nästa steg i ordning:**
+1. Otilldelat på plan 0. I lagret V-53-FE-_- fäster inte etiketterna (S02-P2 slutar 2,3 pt från linjen).
+2. Knippesordning för täta KV/VV-knippen (Higab-bladen).
+3. Matchningen ≥ 95 %: B101P och RA101 blir osäkra, med T6-score 0,93 och 0,90.
+4. Fas 10: stilprofiler och korrigeringsåterföring. Kräver ett andra facitprojekt (ÖPPEN FRÅGA 7).
+5. Väg D/E: rastervektorisering.
