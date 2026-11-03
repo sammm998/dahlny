@@ -38,7 +38,6 @@ tiles:
   blank_ink_fraction: 0.0005         # bitar med mindre andel mörka pixlar än så hoppas över (tomt papper)
   ink_threshold: 160                 # gråvärde under detta räknas som bläck
   edge_margin_pt: 2.0                # läsning närmare bitens inre kant än så räknas som möjligen avskuren
-  escalate_max_fraction: 0.10        # beslut 2026-11-02 – högst denna andel av AI-lästa bitar till T5X (Opus)
 
 labels:
   min_read_confidence: 0.8           # 6.4.3 c.3 – under → granskning

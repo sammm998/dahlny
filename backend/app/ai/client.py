@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import threading
 import time
 import uuid
 from collections.abc import Callable, Iterator, Sequence
@@ -191,6 +192,7 @@ class AIClient:
         Nås det kastas CostCapExceeded före nästa anrop – det redan gjorda står kvar i ai_run."""
         self._budget = Decimal(str(budget_usd)) if budget_usd is not None else None
         self.spent_usd = Decimal(0)
+        self._spent_lock = threading.Lock()  # AIClient används från flera trådar (T5)
         self._scope_limit: Decimal | None = None
         self._scope_name = ""
         self._sessions = session_factory
@@ -469,7 +471,8 @@ class AIClient:
             session.add(run)
             session.commit()
         if cost is not None:
-            self.spent_usd += cost
+            with self._spent_lock:
+                self.spent_usd += cost
         return run.id
 
 

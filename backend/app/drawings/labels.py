@@ -12,8 +12,8 @@
    - olika → etiketten skärs ut i 600 dpi och läses om (T5R) med båda läsningarna som alternativ.
      Väljer omläsningen en av dem med hög säkerhet blir det texten; annars flaggas etiketten (< 0,8);
    - bara en läsare såg etiketten → konfidensen tak under granskningsgränsen.
-6. Bitarna med flest flaggade etiketter läses av T5X (Opus), högst `tiles.escalate_max_fraction` av de
-   AI-lästa bitarna. Upprepar T5X en av läsningarna tecken för tecken lyfts etiketten.
+6. Kan T5R (Sonnet) inte avgöra en oenighet eskaleras utsnittet till Opus (T5R:s kedja i models.yaml).
+AI-anropen körs parallellt (`defaults.max_concurrency`); rendering och OCR körs i ordning.
 Bladets AI-kostnad har ett tak (`labels_budget_usd_per_sheet`); nås det läses resten bara med OCR (flaggat).
 Ingen läsning rättas mot förväntade ord. Okända suffix behålls (tolkas i grammatiken, inte här).
 
@@ -26,11 +26,11 @@ from __future__ import annotations
 import argparse
 import json
 import logging
-import math
 import time
 import unicodedata
 import uuid
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Protocol
@@ -38,7 +38,7 @@ from typing import Any, Protocol
 import numpy as np
 import pymupdf
 
-from app.ai.client import AIClient, AIError, AITaskFailed, CostCapExceeded
+from app.ai.client import AIClient, AIError, AIResult, AITaskFailed, CostCapExceeded
 from app.ai.datatypes import ContentPart, ImagePart, ProviderError, ProviderNotConfigured, TextPart
 from app.ai.schemas.labels import LabelReread, TileLabel, TileLabels, TileTriage
 from app.config.settings import load_thresholds
@@ -120,11 +120,14 @@ class TileStats:
     t5: int = 0  # bitar lästa av T5 (Sonnet)
     regrown: int = 0  # avskuren text utan hel läsning i grannbiten → biten förstorad och läst igen
     rereads: int = 0  # etikettutsnitt lästa av T5R (Sonnet)
-    escalated: int = 0  # lästa igen av T5X
     failed: int = 0  # ingen modell gav giltigt svar
 
     def as_json(self) -> dict[str, int]:
         return dict(self.__dict__)
+
+    def add(self, other: TileStats) -> None:
+        for k, v in other.__dict__.items():
+            setattr(self, k, getattr(self, k) + v)
 
 
 @dataclass
@@ -299,7 +302,7 @@ def _tile_parts(tile: Tile, png: bytes) -> list[ContentPart]:
 def _vision_tile(
     ai: AIClient, task_id: str, tile: Tile, png: bytes, project_id: uuid.UUID | None, run_ids: list[uuid.UUID]
 ) -> tuple[list[Reading], bool]:
-    """En bit läst av T5 eller T5X: (läsningar, skär kanten genom text?)."""
+    """En bit läst av T5: (läsningar, skär kanten genom text?)."""
     result = ai.structured_result(task_id, _tile_parts(tile, png), TileLabels, project_id=project_id)
     run_ids.append(result.run_id)
     return _readings(
@@ -326,15 +329,24 @@ def _agrees_with_ocr(haiku: list[Reading], tile_ocr: list[Reading]) -> bool:
     )
 
 
+@dataclass
+class _TileOutcome:
+    readings: list[Reading]
+    cut_by: str | None  # uppgiften som såg avskuren text, eller None
+    run_ids: list[uuid.UUID]
+    stats: TileStats
+
+
 def _read_tile(
-    ai: AIClient, tile: Tile, png: bytes, tile_ocr: list[Reading], project_id: uuid.UUID | None,
-    run_ids: list[uuid.UUID], stats: TileStats,
-) -> tuple[list[Reading], str | None]:  # fmt: skip
-    """Haiku (T5T) sorterar och läser biten. Returnerar (läsningar, uppgift som såg avskuren text eller None).
+    ai: AIClient, tile: Tile, png: bytes, tile_ocr: list[Reading], project_id: uuid.UUID | None
+) -> _TileOutcome:
+    """Haiku (T5T) sorterar och läser biten. Körs i en tråd: ingen rendering här (PyMuPDF är inte trådsäkert).
 
     labels_routing = labels: Haikus läsning används; etiketter där Haiku och OCR inte enas läses om som
     utsnitt (T5R). labels_routing = tiles: svår bit → T5 (Sonnet), utom när Haiku och OCR läser varje
     etikett lika. Ogiltigt svar från T5T → T5 i båda lägena."""
+    run_ids: list[uuid.UUID] = []
+    stats = TileStats()
     try:
         tri = ai.structured_result("T5T", _tile_parts(tile, png), TileTriage, project_id=project_id)
     except AITaskFailed:
@@ -342,21 +354,36 @@ def _read_tile(
     if tri is not None:
         run_ids.append(tri.run_id)
         haiku = _readings(tile, tri.value.labels, tri.served_model or tri.model)
-        cut = "T5T" if tri.value.tile_has_cut_text else None
+        cut_by = "T5T" if tri.value.tile_has_cut_text else None
         kind = tri.value.kind
         if kind == "empty":
             stats.empty += 1
-            return [], None
+            return _TileOutcome([], None, run_ids, stats)
         stats.simple += kind == "simple"
         stats.hard += kind == "hard"
         if ai.config.labels_routing == "labels":
-            return haiku, cut
-        if cut is None and (kind == "simple" or _agrees_with_ocr(haiku, tile_ocr)):
+            return _TileOutcome(haiku, cut_by, run_ids, stats)
+        if cut_by is None and (kind == "simple" or _agrees_with_ocr(haiku, tile_ocr)):
             stats.verified += kind == "hard"
-            return haiku, None
+            return _TileOutcome(haiku, None, run_ids, stats)
     stats.t5 += 1
     got, t5_cut = _vision_tile(ai, "T5", tile, png, project_id, run_ids)
-    return got, "T5" if t5_cut else None
+    return _TileOutcome(got, "T5" if t5_cut else None, run_ids, stats)
+
+
+def _parallel[T, R](items: Sequence[T], fn: Callable[[T], R], workers: int) -> list[R | Exception]:
+    """fn på varje post i en trådpool (AI-anrop väntar på nätet). Resultat i postordning – deterministiskt."""
+    if not items:
+        return []
+    with ThreadPoolExecutor(max_workers=max(1, workers)) as pool:
+        futures = [pool.submit(fn, it) for it in items]
+        out: list[R | Exception] = []
+        for f in futures:
+            try:
+                out.append(f.result())
+            except Exception as exc:
+                out.append(exc)
+        return out
 
 
 def _at_inner_edge(box: BBox, clip: BBox, page: BBox, margin: float) -> bool:
@@ -419,16 +446,13 @@ def _read_page(
     tiles = make_tiles(
         page, dpi=dpi, size_px=int(th.get("tiles.size_px")), overlap=th.get("tiles.overlap_fraction")
     )
-    vision: list[Reading] = []
     ocr_reads: list[Reading] = []
-    run_ids: list[uuid.UUID] = []
     problems: list[str] = []
     stats = TileStats()
-    ai_tiles: list[Tile] = []
-    cut_tiles: list[tuple[Tile, str]] = []
+    work: list[tuple[Tile, bytes, list[Reading]]] = []
     skipped = 0
     n_read = 0
-    ai_ok = ai is not None
+    # 1. rendering och OCR i ordning (PyMuPDF är inte trådsäkert; RapidOCR använder redan alla kärnor)
     for tile in tiles:
         arr, png = render(page, tile.clip, dpi)
         if ink_fraction(arr, th.get("tiles.ink_threshold")) < th.get("tiles.blank_ink_fraction"):
@@ -447,119 +471,82 @@ def _read_page(
                 if score >= th.get("labels.ocr_min_score") and text.strip():
                     tile_ocr.append(Reading(text.strip(), tile.to_page(box), 0.0, score, "ocr", tile.index))
             ocr_reads.extend(tile_ocr)
-        if ai_ok and ai is not None:
-            try:
-                got, cut_by = _read_tile(ai, tile, png, tile_ocr, project_id, run_ids, stats)
-                vision.extend(got)
-                ai_tiles.append(tile)
-                if cut_by:
-                    cut_tiles.append((tile, cut_by))
-            except AITaskFailed as exc:
+        work.append((tile, png, tile_ocr))
+    # 2. AI-anropen parallellt
+    vision: list[Reading] = []
+    run_ids: list[uuid.UUID] = []
+    cut_tiles: list[tuple[Tile, str]] = []
+    ai_ok = ai is not None
+    if ai is not None:
+        outcomes = _parallel(
+            work, lambda w: _read_tile(ai, w[0], w[1], w[2], project_id), ai.config.defaults.max_concurrency
+        )
+        for (tile, _png, _o), res in zip(work, outcomes, strict=True):
+            if isinstance(res, _TileOutcome):
+                vision.extend(res.readings)
+                run_ids.extend(res.run_ids)
+                stats.add(res.stats)
+                if res.cut_by:
+                    cut_tiles.append((tile, res.cut_by))
+            elif isinstance(res, AITaskFailed):
                 stats.failed += 1
-                problems.append(f"bit {tile.index}: {exc}")
-            except STOP_AI as exc:
-                problems.append(f"vision avbruten: {type(exc).__name__}: {exc}")
+                problems.append(f"bit {tile.index}: {res}")
+            elif isinstance(res, STOP_AI):
+                problems.append(f"vision avbruten: {type(res).__name__}: {res}")
                 ai_ok = False
+            else:
+                raise res
     if ai_ok and ai is not None and cut_tiles:
         ai_ok = _regrow(page, cut_tiles, tiles, vision, ai, project_id, run_ids, stats, problems)
     dedupe = th.get("tiles.dedupe_iou")
     vision, ocr_reads = _dedupe(vision, dedupe), _dedupe(ocr_reads, dedupe)
-    labels = _combine(page, vision, ocr_reads, ai if ai_ok else None, project_id, run_ids, stats)
-    if ai_ok and ai is not None:
-        try:
-            _escalate(page, labels, ai_tiles, ai, project_id, run_ids, stats)
-        except STOP_AI as exc:
-            problems.append(f"eskalering avbruten: {type(exc).__name__}: {exc}")
+    labels = _combine(page, vision, ocr_reads, ai if ai_ok else None, project_id, run_ids, stats, problems)
     elapsed = time.monotonic() - started
     return PageLabels(page.number + 1, labels, n_read, skipped, elapsed, run_ids, problems, stats=stats)
 
 
 def _regrow(
     page: pymupdf.Page, cut_tiles: list[tuple[Tile, str]], tiles: list[Tile], vision: list[Reading],
-    ai: AIClient,
-    project_id: uuid.UUID | None, run_ids: list[uuid.UUID], stats: TileStats, problems: list[str],
+    ai: AIClient, project_id: uuid.UUID | None, run_ids: list[uuid.UUID], stats: TileStats,
+    problems: list[str],
 ) -> bool:  # fmt: skip
     """Förstora och läs om (med samma uppgift som läste biten) de bitar där avskuren text saknar en hel
     läsning i en grannbit. Returnerar False om AI-läsningen fick avbrytas."""
     th = load_thresholds()
     clips = {t.index: t.clip for t in tiles}
     page_box: BBox = (0.0, 0.0, page.rect.width, page.rect.height)
-    todo = [(t, task) for t, task in cut_tiles if _needs_regrow(t, vision, clips, page_box)]
-    for tile, task in todo:
-        big = _grown(tile, page, th.get("tiles.cut_text_grow"))
-        _arr, png = render(page, big.clip, tile.dpi)
-        try:
-            if task == "T5T":
-                tri = ai.structured_result("T5T", _tile_parts(big, png), TileTriage, project_id=project_id)
-                run_ids.append(tri.run_id)
-                got = _readings(big, tri.value.labels, tri.served_model or tri.model)
-            else:
-                got, _cut = _vision_tile(ai, task, big, png, project_id, run_ids)
-        except AITaskFailed as exc:
-            problems.append(f"bit {tile.index} förstorad: {exc}")
-            continue
-        except STOP_AI as exc:
-            problems.append(f"vision avbruten: {type(exc).__name__}: {exc}")
-            return False
-        stats.regrown += 1
-        vision.extend(got)
-    return True
+    todo = []
+    for tile, task in cut_tiles:
+        if _needs_regrow(tile, vision, clips, page_box):
+            big = _grown(tile, page, th.get("tiles.cut_text_grow"))
+            todo.append((big, render(page, big.clip, tile.dpi)[1], task))
 
+    def read(item: tuple[Tile, bytes, str]) -> tuple[list[Reading], list[uuid.UUID]]:
+        big, png, task = item
+        ids: list[uuid.UUID] = []
+        if task == "T5T":
+            tri = ai.structured_result("T5T", _tile_parts(big, png), TileTriage, project_id=project_id)
+            ids.append(tri.run_id)
+            return _readings(big, tri.value.labels, tri.served_model or tri.model), ids
+        got, _cut = _vision_tile(ai, task, big, png, project_id, ids)
+        return got, ids
 
-def _center_in(box: BBox, clip: BBox) -> bool:
-    cx, cy = (box[0] + box[2]) / 2, (box[1] + box[3]) / 2
-    return clip[0] <= cx <= clip[2] and clip[1] <= cy <= clip[3]
-
-
-def _escalate(
-    page: pymupdf.Page, labels: list[LabelResult], ai_tiles: list[Tile], ai: AIClient,
-    project_id: uuid.UUID | None, run_ids: list[uuid.UUID], stats: TileStats,
-) -> None:  # fmt: skip
-    """Bitarna med flest flaggade etiketter läses av T5X (Opus), högst tiles.escalate_max_fraction av de
-    AI-lästa bitarna. En flaggad etikett vars läsning T5X upprepar tecken för tecken lyfts: överens med OCR
-    → samma regel som vision+OCR; överens bara med en annan visionmodell → som en lyckad omläsning."""
-    th = load_thresholds()
-    min_conf = th.get("labels.min_read_confidence")
-    limit = math.floor(th.get("tiles.escalate_max_fraction") * len(ai_tiles))
-    left = [lab for lab in labels if lab.read_confidence < min_conf]
-    chosen: list[tuple[Tile, list[LabelResult]]] = []
-    while left and len(chosen) < limit:
-        tile = max(ai_tiles, key=lambda t: (sum(_center_in(lab.bbox, t.clip) for lab in left), -t.index))
-        mine = [lab for lab in left if _center_in(lab.bbox, tile.clip)]
-        if not mine:
-            break
-        chosen.append((tile, mine))
-        left = [lab for lab in left if lab not in mine]
-    pair_iou = th.get("labels.pair_iou")
-    for tile, mine in chosen:
-        _arr, png = render(page, tile.clip, tile.dpi)
-        try:
-            got, _cut = _vision_tile(ai, "T5X", tile, png, project_id, run_ids)
-        except AITaskFailed:
-            for lab in mine:
-                lab.flags.append("escalation_failed")
-            continue
-        stats.escalated += 1
-        for lab in mine:
-            best = max(got, key=lambda x: iou(x.bbox, lab.bbox), default=None)
-            if (
-                best is None
-                or max(iou(best.bbox, lab.bbox), overlap_of_smaller(best.bbox, lab.bbox)) < pair_iou
-            ):
-                lab.flags.append("escalated_not_seen")
-                continue
-            same = [r for r in lab.readings if normalize(r.text) == normalize(best.text)]
-            lab.readings.append(best)
-            if not same:
-                lab.flags.append(f"escalated_read:{best.text!r}")
-                continue
-            with_ocr = any(r.source == "ocr" for r in same)
-            lab.text = same[0].text
-            lab.read_confidence = th.get(
-                "labels.agree_confidence" if with_ocr else "labels.reread_confidence"
-            )
-            lab.method += "+escalated"
-            lab.flags = [f"escalated_agrees_{'ocr' if with_ocr else 'vision'}"]
+    ok = True
+    for (big, _png, _task), res in zip(
+        todo, _parallel(todo, read, ai.config.defaults.max_concurrency), strict=True
+    ):
+        if isinstance(res, AITaskFailed):
+            problems.append(f"bit {big.index} förstorad: {res}")
+        elif isinstance(res, STOP_AI):
+            problems.append(f"vision avbruten: {type(res).__name__}: {res}")
+            ok = False
+        elif isinstance(res, Exception):
+            raise res
+        else:
+            stats.regrown += 1
+            vision.extend(res[0])
+            run_ids.extend(res[1])
+    return ok
 
 
 def _pair(
@@ -598,12 +585,17 @@ def _combine(
     project_id: uuid.UUID | None,
     run_ids: list[uuid.UUID],
     stats: TileStats | None = None,
+    problems: list[str] | None = None,
 ) -> list[LabelResult]:
+    """Para ihop läsningarna. Oenighet (och i läget labels: en ensam läsare) läses om som utsnitt (T5R,
+    parallellt); kan T5R inte avgöra eskaleras utsnittet till nästa modell i T5R:s kedja."""
     th = load_thresholds()
     stats = stats if stats is not None else TileStats()
+    problems = problems if problems is not None else []
     cap = th.get("labels.single_reader_cap")
     min_conf = th.get("labels.min_read_confidence")
     out: list[LabelResult] = []
+    asks: list[tuple[int, str, str | None, bytes]] = []  # (index i out, första, andra, utsnitt)
     for v, o in _pair(vision, ocr_reads, th.get("labels.pair_iou")):
         if v and o:
             box = _union(v.bbox, o.bbox)
@@ -612,97 +604,86 @@ def _combine(
                 flags = ["uncertain_chars"] if v.uncertain_chars else []
                 out.append(LabelResult(v.text, box, v.rotation, conf, "vision+ocr", [v, o], flags))
                 continue
-            out.append(_reread(page, v, o, box, ai, project_id, run_ids, stats))
+            below = min(v.confidence, o.confidence, min_conf - 0.01)
+            out.append(
+                LabelResult(v.text, box, v.rotation, below, "vision+ocr", [v, o], ["readers_disagree"])
+            )
+            if ai is not None:
+                asks.append((len(out) - 1, v.text, o.text, _crop(page, box)))
             continue
         only = v or o
         assert only is not None
         conf = min(only.confidence, cap)
         flags = [f"only_{only.source}"] + (["uncertain_chars"] if only.uncertain_chars else [])
-        single = LabelResult(only.text, only.bbox, only.rotation, conf, only.source, [only], flags)
+        out.append(LabelResult(only.text, only.bbox, only.rotation, conf, only.source, [only], flags))
         if ai is not None and ai.config.labels_routing == "labels":
-            single = _confirm(page, single, ai, project_id, run_ids, stats)
-        out.append(single)
+            asks.append((len(out) - 1, only.text, None, _crop(page, only.bbox)))
+    if ai is not None and asks:
+        n = page.number + 1
+        answers = _parallel(
+            asks,
+            lambda a: _ask_reread(ai, n, a[1], a[2], a[3], project_id),
+            ai.config.defaults.max_concurrency,
+        )
+        for (i, first, second, _png), res in zip(asks, answers, strict=True):
+            if isinstance(res, AIResult):
+                run_ids.append(res.run_id)
+                stats.rereads += 1
+                out[i] = _resolve(out[i], first, second, res.value)
+            elif isinstance(res, AI_UNAVAILABLE):
+                if not any(p.startswith("omläsning avbruten") for p in problems):
+                    problems.append(f"omläsning avbruten: {type(res).__name__}: {res}")
+            else:
+                raise res
     for lab in out:
         if lab.read_confidence < min_conf and "needs_review" not in lab.flags:
             lab.flags.append("needs_review")
     return sorted(out, key=lambda r: (round(r.bbox[1]), r.bbox[0]))
 
 
-def _reread(
-    page: pymupdf.Page,
-    v: Reading,
-    o: Reading,
-    box: BBox,
-    ai: AIClient | None,
-    project_id: uuid.UUID | None,
-    run_ids: list[uuid.UUID],
-    stats: TileStats,
-) -> LabelResult:
+def _crop(page: pymupdf.Page, box: BBox) -> bytes:
+    """Etikettens utsnitt i tiles.reread_dpi (i huvudtråden – PyMuPDF är inte trådsäkert)."""
     th = load_thresholds()
-    below = min(v.confidence, o.confidence, th.get("labels.min_read_confidence") - 0.01)
-    unresolved = LabelResult(v.text, box, v.rotation, below, "vision+ocr", [v, o], ["readers_disagree"])
-    if ai is None:
-        return unresolved
-    rr = _ask_reread(page, box, v.text, o.text, ai, project_id, run_ids, stats)
-    if rr is None:
-        return unresolved
-    chosen = {"first": v.text, "second": o.text}.get(rr.choice)
+    m = th.get("tiles.reread_margin_pt")
+    clip = (max(0.0, box[0] - m), max(0.0, box[1] - m), min(page.rect.width, box[2] + m),
+            min(page.rect.height, box[3] + m))  # fmt: skip
+    return render(page, clip, int(th.get("tiles.reread_dpi")))[1]
+
+
+def _ask_reread(
+    ai: AIClient, page_no: int, first: str, second: str | None, png: bytes, project_id: uuid.UUID | None
+) -> AIResult[LabelReread]:
+    """T5R på ett utsnitt. Ett svar som inte väljer en läsning säkert eskaleras i T5R:s kedja (Opus)."""
+    min_conf = load_thresholds().get("labels.min_read_confidence")
+    second_txt = repr(second) if second is not None else "(ingen)"
+    return ai.structured_result(
+        "T5R",
+        [
+            TextPart(f"Första läsningen: {first!r}\nAndra läsningen: {second_txt}"),
+            ImagePart(png, label=f"p{page_no}_reread"),
+        ],
+        LabelReread,
+        project_id=project_id,
+        accept=lambda rr: rr.choice != "neither" and rr.confidence >= min_conf,
+    )
+
+
+def _resolve(lab: LabelResult, first: str, second: str | None, rr: LabelReread) -> LabelResult:
+    """Omläsningen väljer en av läsningarna tecken för tecken med hög säkerhet → reread_confidence.
+    Annars förblir etiketten flaggad, med omläsningens svar i flaggorna."""
+    th = load_thresholds()
+    chosen = {"first": first, "second": second}.get(rr.choice)
     if (
         chosen is not None
         and normalize(rr.text) == normalize(chosen)
         and rr.confidence >= th.get("labels.min_read_confidence")
     ):
-        return LabelResult(chosen, box, v.rotation, th.get("labels.reread_confidence"), "vision+ocr+reread",
-                           [v, o], [f"reread_chose_{rr.choice}"])  # fmt: skip
-    unresolved.flags.append(f"reread_{rr.choice}:{rr.text!r}")
-    return unresolved
-
-
-def _ask_reread(
-    page: pymupdf.Page, box: BBox, first: str, second: str | None, ai: AIClient, project_id: uuid.UUID | None,
-    run_ids: list[uuid.UUID], stats: TileStats,
-) -> LabelReread | None:  # fmt: skip
-    """T5R på ett utsnitt i 600 dpi. None om AI inte är tillgänglig (etiketten förblir flaggad)."""
-    th = load_thresholds()
-    m = th.get("tiles.reread_margin_pt")
-    clip = (max(0.0, box[0] - m), max(0.0, box[1] - m), min(page.rect.width, box[2] + m),
-            min(page.rect.height, box[3] + m))  # fmt: skip
-    _arr, png = render(page, clip, int(th.get("tiles.reread_dpi")))
-    second_txt = repr(second) if second is not None else "(ingen)"
-    try:
-        result = ai.structured_result(
-            "T5R",
-            [
-                TextPart(f"Första läsningen: {first!r}\nAndra läsningen: {second_txt}"),
-                ImagePart(png, label=f"p{page.number + 1}_reread"),
-            ],
-            LabelReread,
-            project_id=project_id,
-        )
-    except AI_UNAVAILABLE:
-        return None
-    run_ids.append(result.run_id)
-    stats.rereads += 1
-    return result.value
-
-
-def _confirm(
-    page: pymupdf.Page, lab: LabelResult, ai: AIClient, project_id: uuid.UUID | None,
-    run_ids: list[uuid.UUID], stats: TileStats,
-) -> LabelResult:  # fmt: skip
-    """Bara en läsare såg etiketten: T5R läser utsnittet. Bekräftar den läsningen tecken för tecken med hög
-    säkerhet är två läsare överens (som en lyckad omläsning); annars förblir etiketten flaggad."""
-    th = load_thresholds()
-    rr = _ask_reread(page, lab.bbox, lab.text, None, ai, project_id, run_ids, stats)
-    if rr is None:
-        return lab
-    if (
-        rr.choice == "first"
-        and normalize(rr.text) == normalize(lab.text)
-        and rr.confidence >= th.get("labels.min_read_confidence")
-    ):
-        return LabelResult(lab.text, lab.bbox, lab.rotation, th.get("labels.reread_confidence"),
-                           f"{lab.method}+reread", lab.readings, ["reread_confirmed"])  # fmt: skip
+        conf = th.get("labels.reread_confidence")
+        if second is None:
+            return LabelResult(chosen, lab.bbox, lab.rotation, conf, f"{lab.method}+reread", lab.readings,
+                               ["reread_confirmed"])  # fmt: skip
+        return LabelResult(chosen, lab.bbox, lab.rotation, conf, "vision+ocr+reread", lab.readings,
+                           [f"reread_chose_{rr.choice}"])  # fmt: skip
     lab.flags.append(f"reread_{rr.choice}:{rr.text!r}")
     return lab
 
@@ -762,7 +743,7 @@ def main(argv: list[str] | None = None) -> int:
         budget = args.budget if args.budget is not None else config.cost_cap_usd_per_project
         ai = AIClient(make_session_factory(), config=config, budget_usd=budget)
         sheet = args.sheet_budget if args.sheet_budget is not None else config.labels_budget_usd_per_sheet
-        models = ", ".join(f"{t}: {config.task(t).model}" for t in ("T5T", "T5", "T5R", "T5X"))
+        models = ", ".join(f"{t}: {config.task(t).model}" for t in ("T5T", "T5", "T5R"))
         print(f"{models}; tak {sheet} USD per blad, {budget} USD totalt")
     ocr = None if args.no_ocr else RapidOcrReader()
     started = time.monotonic()
@@ -800,7 +781,7 @@ def main(argv: list[str] | None = None) -> int:
     cost_all = round(total_cost, 4) if ai is not None else None
     if cost_all is not None:
         print(f"AI-kostnad (ai_run, cacheträff = originalpris): {cost_all:.4f} USD, {len(run_ids)} anrop")
-    tasks = ("T5T", "T5", "T5R", "T5X")
+    tasks = ("T5T", "T5", "T5R")
     out["_meta"] = {
         "seconds": round(time.monotonic() - started, 1),
         "ai_run_ids": run_ids,

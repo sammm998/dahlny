@@ -15,6 +15,7 @@ defaults:
   sdk_max_retries: 4          # SDK:ns exponentiella backoff vid 408/409/429/5xx/nätverksfel
   timeout_s: 600
   validation_retries: 1       # nytt försök med valideringsfelet bifogat, sedan eskalering
+  max_concurrency: 8          # samtidiga AI-anrop i en körning (T5: bitar och utsnitt); 429 hanteras av SDK:n
 
 # Kostnadstak per projekt (SPEC 7.2). Överskrids → AIClient vägrar nya anrop (CostCapExceeded).
 cost_cap_usd_per_project: 30.0   # beslut 2026-11-02; används också som tak för mätkörningar utan projekt
@@ -77,20 +78,15 @@ tasks:
     max_tokens: 8192
     description: Sorterar en ritningsbit som tom, enkel eller svår och läser etiketterna i enkla bitar
   T5:
-    model: claude-sonnet-5-5   # beslut 2026-11-02 (Bilaga A: 87/88 exakt); Opus bara via T5X
+    model: claude-sonnet-5-5   # beslut 2026-11-02 (Bilaga A: 87/88 exakt); Opus bara via T5R:s eskalering
     escalation: []
     effort: high
     description: Etikettläsning på svåra ritningsbitar (vision)
-  T5R:  # Omläsning av en enskild etikett där vision och OCR inte enas (SPEC 6.4.3 c.3, 7.1 eskalering)
+  T5R:  # Omläsning av en enskild etikett där läsarna inte enas (SPEC 6.4.3 c.3, 7.1 eskalering)
     model: claude-sonnet-5-5
-    escalation: []
+    escalation: [claude-opus-5-5]   # beslut 2026-11-03: Opus bara när Sonnet inte kan avgöra en oenighet
     max_tokens: 4096
     description: Omläsning av etikett i 600 dpi med båda läsningarna som alternativ
-  T5X:  # Eskalering: högst tiles.escalate_max_fraction av bitarna, de med flest flaggade etiketter
-    model: claude-opus-5-5
-    escalation: []
-    effort: high
-    description: Ny läsning av enstaka bitar med låg konfidens (samma uppgift som T5, starkare modell)
   T6:
     model: claude-haiku-5-5
     escalation: [claude-sonnet-5-5]

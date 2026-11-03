@@ -17,7 +17,7 @@ from sqlalchemy.orm import Session, sessionmaker
 from app.ai.client import AIClient
 from app.ai.datatypes import ImagePart, ProviderNotConfigured, ProviderRequest, TextPart
 from app.ai.providers.fake import FakeProvider
-from app.config.settings import ModelsConfig, Thresholds, load_models_config, load_thresholds
+from app.config.settings import ModelsConfig, load_models_config, load_thresholds
 from app.drawings import labels as labels_module
 from app.drawings.labels import (
     BBox,
@@ -34,7 +34,7 @@ from app.drawings.labels import (
 from app.ingest.pdf_typed import open_pdf
 
 # modellerna enligt models.yaml (beslut 2026-11-02)
-T5T, T5, T5R, T5X = "claude-haiku-5-5", "claude-sonnet-5-5", "claude-sonnet-5-5", "claude-opus-5-5"
+T5T, T5, T5R, OPUS = "claude-haiku-5-5", "claude-sonnet-5-5", "claude-sonnet-5-5", "claude-opus-5-5"
 PAGE = (600.0, 400.0)  # liten sida: få bitar i 300 dpi
 LABEL_AT: BBox = (100.0, 100.0, 160.0, 110.0)  # etikettens läge i sidkoordinater
 
@@ -73,7 +73,7 @@ def _place(label: str, text: str | None, conf: float, cut: bool) -> dict[str, An
 
 
 def vision_reply(text: str, conf: float = 0.95, cut: bool = False) -> Reply:
-    """Ett T5/T5X-svar."""
+    """Ett T5-svar."""
 
     def reply(req: ProviderRequest) -> dict[str, Any]:
         return _place(tile_of(req), text, conf, cut)
@@ -159,8 +159,8 @@ def run(
             replies[T5T] = [triage] * 50
         if vision is not None or reread is not None:
             replies[T5] = [sonnet] * 50
-        if escalated is not None:
-            replies[T5X] = [escalated] * 10
+        if escalated is not None:  # T5R:s eskalering när Sonnet inte kan avgöra
+            replies[OPUS] = [escalated] * 10
         fake = FakeProvider(replies)
         raw = load_models_config().model_dump()
         raw["labels_routing"] = routing
@@ -172,14 +172,6 @@ def run(
 def models_called(fake: FakeProvider | None) -> list[str]:
     assert fake is not None
     return [c.model for c in fake.calls]
-
-
-def _with_threshold(monkeypatch: pytest.MonkeyPatch, key: str, value: float) -> None:
-    raw = load_thresholds().model_dump()
-    section, name = key.split(".")
-    raw[section][name] = value
-    patched = Thresholds.model_validate(raw)
-    monkeypatch.setattr(labels_module, "load_thresholds", lambda: patched)
 
 
 def test_tiles_cover_the_page_with_overlap() -> None:
@@ -283,8 +275,10 @@ def test_label_routing_unconfirmed_single_reader_stays_flagged(
     pdf_page: Any, session_factory: sessionmaker[Session]
 ) -> None:
     other = {"text": "KV01-K1-16", "choice": "neither", "confidence": 0.9, "reason": "sexa"}
-    res, _ = run(pdf_page, session_factory, triage=triage_reply("empty"), reread=other, ocr_text="KV01-K1-15",
-                 routing="labels")  # fmt: skip
+    res, _ = run(
+        pdf_page, session_factory, triage=triage_reply("empty"), reread=other, escalated=other,
+        ocr_text="KV01-K1-15", routing="labels",
+    )  # fmt: skip
     [lab] = res.labels
     assert lab.read_confidence < 0.8 and "needs_review" in lab.flags and lab.text == "KV01-K1-15"
 
@@ -327,34 +321,29 @@ def test_disagreement_is_reread_and_resolved(pdf_page: Any, session_factory: ses
     assert lab.flags == ["reread_chose_first"]
 
 
-def test_unresolved_disagreement_is_flagged_and_escalation_is_capped(
+def test_unresolved_disagreement_is_escalated_to_opus_and_stays_flagged(
     pdf_page: Any, session_factory: sessionmaker[Session]
 ) -> None:
-    reread = {"text": "KV01-K1-16", "choice": "neither", "confidence": 0.6, "reason": "otydligt"}
+    unsure = {"text": "KV01-K1-16", "choice": "neither", "confidence": 0.6, "reason": "otydligt"}
     res, fake = run(
         pdf_page, session_factory, triage=triage_reply("hard"), vision=vision_reply("KV01-K1-15"),
-        ocr_text="KVO1-K1-15", reread=reread,
+        ocr_text="KVO1-K1-15", reread=unsure, escalated=unsure,
     )  # fmt: skip
     [lab] = res.labels
     assert lab.read_confidence < 0.8 and "needs_review" in lab.flags and "readers_disagree" in lab.flags
-    # två AI-lästa bitar × 10 % < 1 → ingen bit får eskaleras till Opus
-    assert T5X not in models_called(fake) and res.stats.escalated == 0
+    assert models_called(fake).count(OPUS) == 1  # bara utsnittet, aldrig hela bitar
 
 
-def test_low_confidence_tile_is_escalated_and_agreement_lifts_the_label(
-    pdf_page: Any, session_factory: sessionmaker[Session], monkeypatch: pytest.MonkeyPatch
-) -> None:
-    _with_threshold(monkeypatch, "tiles.escalate_max_fraction", 1.0)
-    reread = {"text": "KV01-K1-16", "choice": "neither", "confidence": 0.6, "reason": "otydligt"}
+def test_opus_resolves_what_sonnet_could_not(pdf_page: Any, session_factory: sessionmaker[Session]) -> None:
+    unsure = {"text": "KV01-K1-1?", "choice": "neither", "confidence": 0.5, "reason": "otydligt"}
+    sure = {"text": "KV01-K1-15", "choice": "second", "confidence": 0.95, "reason": "femman syns i 600 dpi"}
     res, fake = run(
         pdf_page, session_factory, triage=triage_reply("hard"), vision=vision_reply("KV01-K1-16"),
-        ocr_text="KV01-K1-15", reread=reread, escalated=vision_reply("KV01-K1-15"),
+        ocr_text="KV01-K1-15", reread=unsure, escalated=sure,
     )  # fmt: skip
     [lab] = res.labels
-    assert lab.text == "KV01-K1-15" and lab.read_confidence == 0.98
-    assert lab.flags == ["escalated_agrees_ocr"] and lab.method.endswith("+escalated")
-    # bara biten med flest flaggade etiketter, och etiketten räknas bara i en bit
-    assert models_called(fake).count(T5X) == 1 and res.stats.escalated == 1
+    assert lab.text == "KV01-K1-15" and lab.read_confidence == 0.85 and lab.flags == ["reread_chose_second"]
+    assert models_called(fake).count(OPUS) == 1
 
 
 def test_single_reader_is_always_reviewed(pdf_page: Any, session_factory: sessionmaker[Session]) -> None:

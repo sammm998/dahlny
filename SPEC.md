@@ -494,8 +494,8 @@ Alla modell-ID ligger i `config/models.yaml` och kan bytas utan kodändring. Ver
 | T2 | Titelblock + legendtabeller | `claude-sonnet-5-5` (vision) | `claude-opus-5-5` | Små texter i tabeller |
 | T3 | TB-strukturering | `claude-sonnet-5-5` | `claude-opus-5-5` för segment som misslyckas validering | Lång text, strikt schema |
 | T4 | TB-fullständighetskontroll | `claude-opus-5-5` | – | Oberoende andra läsning, annan modell än T3 |
-| T5T | Sortering av ritningstiles (tom/enkel/svår) + läsning av enkla tiles | `claude-haiku-5-5` (vision) | – (ogiltigt svar → tilen räknas som svår) | Kostnad: bara svåra tiles till T5; tiles där OCR inte hittar text går inte till AI alls (beslut 2026-11-02) |
-| T5 | Etikettläsning på svåra ritningstiles | `claude-sonnet-5-5` (vision) | T5R (`claude-sonnet-5-5`) för etiketter där läsningarna inte enas; T5X (`claude-opus-5-5`) för tiles med flest flaggade etiketter, högst 10 % av tilesen | Bilaga A: Sonnet 87/88 exakt; mål < 1 USD per ritning (`labels_budget_usd_per_sheet`) |
+| T5T | Sortering och läsning av ritningstiles (tom/enkel/svår) | `claude-haiku-5-5` (vision) | – (ogiltigt svar → tilen läses av T5) | Kostnad: tiles där OCR inte hittar text går inte till AI alls (beslut 2026-11-02) |
+| T5 | Etikettläsning på ritningstiles | `claude-sonnet-5-5` (vision) | T5R: omläsning av etikettutsnitt i 600 dpi med `claude-sonnet-5-5`, eskalering till `claude-opus-5-5` när läsningarna inte enas och Sonnet inte kan avgöra. Opus läser aldrig hela tiles. | Beslut 2026-11-03: träffsäkerheten går före kostnaden. Baslinje Bilaga A: 87/88 exakt, 0 tysta fel, ≈ 1,67 USD per blad. `labels_routing` (models.yaml) väljer om Sonnet läser hela svåra tiles (`tiles`) eller bara etikettutsnitt (`labels`); `labels` blir standard bara med 0 tysta fel och minst baslinjens exakthet |
 | T6 | Artikel-rerank | `claude-haiku-5-5` | `claude-sonnet-5-5` vid score 0.6–0.95 | Väljer bara bland kandidater |
 | T7 | Lager-/systemmappning (DXF/IFC) | `claude-sonnet-5-5` | – | Görs en gång per konsult |
 | T8 | Vektorgruppsklassning (rör/vägg/ledare) | `claude-opus-5-5` (vision) | – | En gång per sida/stil |

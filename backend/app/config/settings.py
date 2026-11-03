@@ -62,6 +62,7 @@ class ModelDefaults(_Strict):
     sdk_max_retries: int = Field(ge=0)
     timeout_s: float = Field(gt=0)
     validation_retries: int = Field(ge=0)
+    max_concurrency: int = Field(ge=1)
 
 
 class ModelInfo(_Strict):
