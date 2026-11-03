@@ -72,6 +72,12 @@ Varje rättning sparas med vem, när, gammalt och nytt värde.
 - **Rördelar** är en uppskattning ur ritade riktningsändringar.
 - **Okänd leverantör**: rader där registret saknar leverantör. Välj leverantör innan mailet skickas.
 
+## 4b. Ladda upp direkt i webben
+
+När `VSK_ACCESS_PASSWORD` är satt på servern kräver sidan inloggning (valfritt användarnamn, det lösenordet). Under
+**+ Nytt projekt** laddar du upp teknisk beskrivning och ritningar (PDF/ZIP) och valfritt artikelregister, och flödet
+körs på servern. Projektet dyker upp i listan när det är klart. Utan lösenord är uppladdning avstängd.
+
 ## 5. Det som inte är påslaget än
 
 Detta väntar på svar från Dahl (se SPEC kap 14) och står tydligt i gränssnittet:
@@ -79,5 +85,5 @@ Detta väntar på svar från Dahl (se SPEC kap 14) och står tydligt i gränssni
 - Export direkt till Prixel via API (fråga 1). Använd Excel eller urklipp.
 - Utkast direkt i Outlook eller Gmail (fråga 3). Använd .eml-filen.
 - Leverantörernas mailadresser (fråga 4). Mottagaren är tom i utkasten.
-- Inloggning med SSO (fråga 6) och uppladdning direkt i gränssnittet.
+- Inloggning med SSO (fråga 6) – tills dess ett gemensamt lösenord.
 - Skannade ritningar och foton läses bara delvis (etiketter, inte rörlängder).

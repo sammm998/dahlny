@@ -17,4 +17,5 @@ USER vskalkyl
 
 # Railway anger porten i $PORT; lokalt 8000
 EXPOSE 8000
-CMD ["sh", "-c", "exec uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}"]
+# Med DATABASE_URL körs migreringarna först (misslyckas de startar appen ändå och /health säger varför)
+CMD ["sh", "-c", "if [ -n \"$DATABASE_URL\" ]; then alembic upgrade head || echo 'Migreringen misslyckades – se loggen'; fi; exec uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}"]

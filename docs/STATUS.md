@@ -108,3 +108,13 @@ Faller grinden utan T5 kan omgångens regler slås av en i taget med `--rule`, t
 3. Matchningen ≥ 95 %: B101P och RA101 blir osäkra, med T6-score 0,93 och 0,90.
 4. Fas 10: stilprofiler och korrigeringsåterföring. Kräver ett andra facitprojekt (ÖPPEN FRÅGA 7).
 5. Väg D/E: rastervektorisering.
+
+## Drift (Railway) – 2026-11-03
+
+- `/` → `/ui/`; gränssnittet ingår i imagen. Uppladdning + körning på servern bakom `VSK_ACCESS_PASSWORD`
+  (`app/api/auth.py`, `POST /api/projects`, status per projekt). Testat lokalt: uppladdat Årjäng gav samma resultat
+  som `make demo`.
+- Startkommandot kör `alembic upgrade head` när `DATABASE_URL` finns.
+- Variabler på Railway: `VSK_ACCESS_PASSWORD`, `DAHLNY_ANTHROPIC_API_KEY`, `DATABASE_URL` (Postgres med PostGIS och
+  pg_trgm); volym monterad på `/app/projekt`. vvs_engine finns inte i imagen → ritningar klassas men mängdas inte
+  på servern (VVS_ENGINE_CMD saknas).
