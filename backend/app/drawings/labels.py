@@ -3,8 +3,9 @@
 1. Sidan delas i bitar (`tiles.size_px`, `tiles.overlap_fraction`, `tiles.dpi`); bitar utan bläck hoppas över.
 2. OCR (RapidOCR) läser varje bit först, som den ligger och vriden ett kvarts varv för lodrät text.
    Hittar OCR ingen text alls (ritningsram, linjer, skraffering) skickas biten inte till AI.
-3. Övriga bitar sorteras av T5T (Haiku): tom, enkel eller svår. Enkla bitar läses av T5T själv, svåra av
-   T5 (Sonnet). Säger modellen att text skärs av kanten läses biten om, förstorad.
+3. Övriga bitar sorteras och läses av T5T (Haiku): tom, enkel eller svår. En svår bit där Haiku och OCR läser
+   varje etikett lika används som den är; övriga svåra läses av T5 (Sonnet). Text som skärs av bitens kant
+   och inte finns hel i en grannbit (överlappet) → biten förstoras och läses om.
 4. Läsningarna förs till sidans koordinater (PDF-punkter). Dubbletter från överlappen slås ihop.
 5. Vision- och OCR-läsningar av samma etikett paras ihop:
    - lika tecken för tecken → hög konfidens;
@@ -114,7 +115,9 @@ class TileStats:
     no_text: int = 0  # OCR fann ingen text → ingen AI
     empty: int = 0  # T5T: tom
     simple: int = 0  # T5T: enkel, Haikus läsning används
-    hard: int = 0  # T5T: svår → T5
+    verified: int = 0  # T5T: svår, men Haiku och OCR överens om varje etikett → Haikus läsning används
+    hard: int = 0  # → T5
+    regrown: int = 0  # avskuren text utan hel läsning i grannbiten → biten förstorad och läst igen
     escalated: int = 0  # lästa igen av T5X
     failed: int = 0  # ingen modell gav giltigt svar
 
@@ -310,40 +313,70 @@ def _grown(tile: Tile, page: pymupdf.Page, grow: float) -> Tile:
                                           min(r.height, y1 + dy)), tile.dpi)  # fmt: skip
 
 
-def _read_hard(
-    ai: AIClient, task_id: str, page: pymupdf.Page, tile: Tile, png: bytes, project_id: uuid.UUID | None,
-    run_ids: list[uuid.UUID],
-) -> list[Reading]:  # fmt: skip
-    """T5/T5X på biten; skär kanten genom text läses biten om, förstorad."""
-    th = load_thresholds()
-    got, cut = _vision_tile(ai, task_id, tile, png, project_id, run_ids)
-    if cut:
-        big = _grown(tile, page, th.get("tiles.cut_text_grow"))
-        _arr, png2 = render(page, big.clip, tile.dpi)
-        got2, _cut2 = _vision_tile(ai, task_id, big, png2, project_id, run_ids)
-        got = got + got2
-    return got
+def _agrees_with_ocr(haiku: list[Reading], tile_ocr: list[Reading]) -> bool:
+    """Varje Haiku-läsning har en OCR-läsning på samma plats med samma tecken, och tvärtom."""
+    if not haiku:
+        return False
+    pairs = _pair(haiku, tile_ocr, load_thresholds().get("labels.pair_iou"))
+    return all(
+        v is not None and o is not None and normalize(v.text) == normalize(o.text) and not v.uncertain_chars
+        for v, o in pairs
+    )
 
 
 def _read_tile(
-    ai: AIClient, page: pymupdf.Page, tile: Tile, png: bytes, project_id: uuid.UUID | None,
+    ai: AIClient, tile: Tile, png: bytes, tile_ocr: list[Reading], project_id: uuid.UUID | None,
     run_ids: list[uuid.UUID], stats: TileStats,
-) -> list[Reading]:  # fmt: skip
-    """Haiku (T5T) sorterar biten. Tom → inget; enkel → Haikus läsning; svår → Sonnet (T5)."""
+) -> tuple[list[Reading], bool]:  # fmt: skip
+    """Haiku (T5T) sorterar och läser biten. Tom → inget; enkel → Haikus läsning; svår men Haiku och OCR
+    överens om varje etikett → Haikus läsning; annars Sonnet (T5). Returnerar (läsningar, avskuren text?)."""
     try:
         tri = ai.structured_result("T5T", _tile_parts(tile, png), TileTriage, project_id=project_id)
     except AITaskFailed:
         tri = None  # sorteringen gav inget giltigt svar → behandla som svår
     if tri is not None:
         run_ids.append(tri.run_id)
+        haiku = _readings(tile, tri.value.labels, tri.served_model or tri.model)
         if tri.value.kind == "empty":
             stats.empty += 1
-            return []
-        if tri.value.kind == "simple" and not tri.value.tile_has_cut_text:
-            stats.simple += 1
-            return _readings(tile, tri.value.labels, tri.served_model or tri.model)
+            return [], False
+        if not tri.value.tile_has_cut_text:
+            if tri.value.kind == "simple":
+                stats.simple += 1
+                return haiku, False
+            if _agrees_with_ocr(haiku, tile_ocr):
+                stats.verified += 1
+                return haiku, False
     stats.hard += 1
-    return _read_hard(ai, "T5", page, tile, png, project_id, run_ids)
+    return _vision_tile(ai, "T5", tile, png, project_id, run_ids)
+
+
+def _at_inner_edge(box: BBox, clip: BBox, page: BBox, margin: float) -> bool:
+    """Ligger lådan vid en kant av biten som inte är sidans kant (där text kan ha skurits av)?"""
+    return (
+        (box[0] - clip[0] <= margin and clip[0] > page[0])
+        or (clip[2] - box[2] <= margin and clip[2] < page[2])
+        or (box[1] - clip[1] <= margin and clip[1] > page[1])
+        or (clip[3] - box[3] <= margin and clip[3] < page[3])
+    )
+
+
+def _needs_regrow(tile: Tile, vision: list[Reading], clips: dict[int, BBox], page: BBox) -> bool:
+    """Avskuren text behöver läsas om bara om ingen grannbit har en hel läsning som täcker den."""
+    margin = load_thresholds().get("tiles.edge_margin_pt")
+    for r in vision:
+        if r.tile != tile.index or not _at_inner_edge(r.bbox, tile.clip, page, margin):
+            continue
+        covered = any(
+            k.tile != r.tile
+            and overlap_of_smaller(k.bbox, r.bbox) >= 0.9
+            and normalize(r.text) in normalize(k.text)
+            and not _at_inner_edge(k.bbox, clips[k.tile], page, margin)
+            for k in vision
+        )
+        if not covered:
+            return True
+    return False
 
 
 def read_page_labels(
@@ -384,6 +417,7 @@ def _read_page(
     problems: list[str] = []
     stats = TileStats()
     ai_tiles: list[Tile] = []
+    cut_tiles: list[Tile] = []
     skipped = 0
     n_read = 0
     ai_ok = ai is not None
@@ -395,6 +429,7 @@ def _read_page(
         if max_tiles is not None and n_read >= max_tiles:
             break
         n_read += 1
+        tile_ocr: list[Reading] = []
         if ocr is not None:
             found = ocr.read(arr)
             if not found:
@@ -402,17 +437,23 @@ def _read_page(
                 continue  # OCR först: utan text (ram, linjer, skraffering) går biten aldrig till AI
             for text, box, score in found:
                 if score >= th.get("labels.ocr_min_score") and text.strip():
-                    ocr_reads.append(Reading(text.strip(), tile.to_page(box), 0.0, score, "ocr", tile.index))
+                    tile_ocr.append(Reading(text.strip(), tile.to_page(box), 0.0, score, "ocr", tile.index))
+            ocr_reads.extend(tile_ocr)
         if ai_ok and ai is not None:
             try:
-                vision.extend(_read_tile(ai, page, tile, png, project_id, run_ids, stats))
+                got, cut = _read_tile(ai, tile, png, tile_ocr, project_id, run_ids, stats)
+                vision.extend(got)
                 ai_tiles.append(tile)
+                if cut:
+                    cut_tiles.append(tile)
             except AITaskFailed as exc:
                 stats.failed += 1
                 problems.append(f"bit {tile.index}: {exc}")
             except STOP_AI as exc:
                 problems.append(f"vision avbruten: {type(exc).__name__}: {exc}")
                 ai_ok = False
+    if ai_ok and ai is not None and cut_tiles:
+        ai_ok = _regrow(page, cut_tiles, tiles, vision, ai, project_id, run_ids, stats, problems)
     dedupe = th.get("tiles.dedupe_iou")
     vision, ocr_reads = _dedupe(vision, dedupe), _dedupe(ocr_reads, dedupe)
     labels = _combine(page, vision, ocr_reads, ai if ai_ok else None, project_id, run_ids)
@@ -423,6 +464,32 @@ def _read_page(
             problems.append(f"eskalering avbruten: {type(exc).__name__}: {exc}")
     elapsed = time.monotonic() - started
     return PageLabels(page.number + 1, labels, n_read, skipped, elapsed, run_ids, problems, stats=stats)
+
+
+def _regrow(
+    page: pymupdf.Page, cut_tiles: list[Tile], tiles: list[Tile], vision: list[Reading], ai: AIClient,
+    project_id: uuid.UUID | None, run_ids: list[uuid.UUID], stats: TileStats, problems: list[str],
+) -> bool:  # fmt: skip
+    """Förstora och läs om (T5) de bitar där avskuren text saknar en hel läsning i en grannbit.
+    Returnerar False om AI-läsningen fick avbrytas."""
+    th = load_thresholds()
+    clips = {t.index: t.clip for t in tiles}
+    page_box: BBox = (0.0, 0.0, page.rect.width, page.rect.height)
+    todo = [t for t in cut_tiles if _needs_regrow(t, vision, clips, page_box)]
+    for tile in todo:
+        big = _grown(tile, page, th.get("tiles.cut_text_grow"))
+        _arr, png = render(page, big.clip, tile.dpi)
+        try:
+            got, _cut = _vision_tile(ai, "T5", big, png, project_id, run_ids)
+        except AITaskFailed as exc:
+            problems.append(f"bit {tile.index} förstorad: {exc}")
+            continue
+        except STOP_AI as exc:
+            problems.append(f"vision avbruten: {type(exc).__name__}: {exc}")
+            return False
+        stats.regrown += 1
+        vision.extend(got)
+    return True
 
 
 def _center_in(box: BBox, clip: BBox) -> bool:
@@ -453,7 +520,7 @@ def _escalate(
     for tile, mine in chosen:
         _arr, png = render(page, tile.clip, tile.dpi)
         try:
-            got = _read_hard(ai, "T5X", page, tile, png, project_id, run_ids)
+            got, _cut = _vision_tile(ai, "T5X", tile, png, project_id, run_ids)
         except AITaskFailed:
             for lab in mine:
                 lab.flags.append("escalation_failed")

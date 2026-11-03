@@ -23,6 +23,7 @@ from app.drawings.labels import (
     BBox,
     PageLabels,
     RapidOcrReader,
+    Reading,
     Tile,
     ink_fraction,
     make_tiles,
@@ -65,11 +66,10 @@ def _place(label: str, text: str | None, conf: float, cut: bool) -> dict[str, An
     if not (tile.clip[0] <= x0 and x1 <= tile.clip[2] and tile.clip[1] <= y0 and y1 <= tile.clip[3]):
         return {"labels": [], "tile_has_cut_text": False}
     box = [(x0 - tile.clip[0]) * k, (y0 - tile.clip[1]) * k, (x1 - tile.clip[0]) * k, (y1 - tile.clip[1]) * k]
-    return {
-        "labels": [{"text": text, "bbox_px": box, "rotation_deg": 0, "underlined": False, "has_leader": False,
-                    "leader_end_px": None, "confidence": conf, "uncertain_chars": []}],
-        "tile_has_cut_text": cut,
+    found: dict[str, Any] = {
+        "text": text, "bbox_px": box, "rotation_deg": 0, "confidence": conf, "uncertain_chars": []
     }  # fmt: skip
+    return {"labels": [found], "tile_has_cut_text": cut}
 
 
 def vision_reply(text: str, conf: float = 0.95, cut: bool = False) -> Reply:
@@ -213,6 +213,39 @@ def test_simple_tile_is_read_by_haiku_without_sonnet(
     assert lab.method == "vision+ocr" and lab.read_confidence == 0.98
     assert {r.model for r in lab.readings if r.source == "vision"} == {T5T}
     assert set(models_called(fake)) == {T5T} and res.stats.simple >= 1 and res.stats.hard == 0
+
+
+def test_hard_tile_where_haiku_and_ocr_agree_skips_sonnet(
+    pdf_page: Any, session_factory: sessionmaker[Session]
+) -> None:
+    res, fake = run(
+        pdf_page, session_factory, triage=triage_reply("hard", "KV01-K1-15"), ocr_text="KV01-K1-15"
+    )
+    [lab] = res.labels
+    assert lab.read_confidence == 0.98 and set(models_called(fake)) == {T5T}
+    assert res.stats.verified >= 1 and res.stats.hard == 0
+
+
+def test_hard_tile_where_haiku_and_ocr_disagree_goes_to_sonnet(
+    pdf_page: Any, session_factory: sessionmaker[Session]
+) -> None:
+    res, _ = run(
+        pdf_page, session_factory, triage=triage_reply("hard", "KVO1-K1-15"),
+        vision=vision_reply("KV01-K1-15"), ocr_text="KV01-K1-15",
+    )  # fmt: skip
+    [lab] = res.labels
+    assert lab.read_confidence == 0.98 and {r.model for r in lab.readings if r.source == "vision"} == {T5}
+    assert res.stats.hard >= 1 and res.stats.verified == 0
+
+
+def test_cut_text_is_reread_only_without_a_whole_reading_in_a_neighbour() -> None:
+    page: BBox = (0.0, 0.0, 600.0, 400.0)
+    left, right = Tile(1, 0, (0.0, 0.0, 245.0, 245.0), 300), Tile(1, 1, (196.0, 0.0, 441.0, 245.0), 300)
+    clips = {0: left.clip, 1: right.clip}
+    cut = Reading("KV01-K", (200.0, 50.0, 244.0, 58.0), 0.0, 0.9, "vision", 0)  # vid bitens högra kant
+    whole = Reading("KV01-K1-15", (200.0, 50.0, 260.0, 58.0), 0.0, 0.9, "vision", 1)
+    assert labels_module._needs_regrow(left, [cut], clips, page)
+    assert not labels_module._needs_regrow(left, [cut, whole], clips, page)
 
 
 def test_empty_tile_by_triage_leaves_ocr_flagged(
