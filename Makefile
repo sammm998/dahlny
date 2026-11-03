@@ -7,7 +7,7 @@ PYTHON ?= python3.12
 TEST_DATABASE_URL ?= postgresql+psycopg://vskalkyl:vskalkyl@localhost:5432/vskalkyl_test
 export TEST_DATABASE_URL
 
-.PHONY: help setup db-up db-down migrate dev test lint fmt typecheck check eval ai-smoke clean
+.PHONY: help setup db-up db-down migrate dev test lint fmt typecheck check eval demo ai-smoke clean
 
 help:
 	@echo "make setup      – skapa backend/.venv och installera beroenden (Python 3.12)"
@@ -19,6 +19,7 @@ help:
 	@echo "make typecheck  – mypy --strict"
 	@echo "make check      – lint + typecheck + test (samma som CI)"
 	@echo "make eval       – utvärdering mot facitprojekten → eval/reports/eval.md"
+	@echo "make demo       – Årjäng hela vägen: avvikelser, mängdlista, markerad PDF, mail (.eml), Prixel → demo/"
 	@echo "make ai-smoke   – ett riktigt AI-anrop (T0) som loggas i ai_run"
 
 setup:
@@ -56,6 +57,12 @@ check: lint typecheck test
 
 eval:
 	$(PY) eval/run_eval.py $(ARGS)
+
+DEMO_PROJECT ?= eval/projects/arjang_tvatthall
+DEMO_OUT ?= demo
+demo:
+	cd backend && $(PY) -m app.pipeline.demo ../$(DEMO_PROJECT)/input ../$(DEMO_OUT) \
+		--register ../$(DEMO_PROJECT)/register/TESTDATA_artikelregister.csv
 
 ai-smoke: migrate
 	cd backend && $(PY) -m app.ai.smoke

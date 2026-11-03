@@ -27,3 +27,6 @@ eval/reports/
 # Lokal lagring
 data/
 storage/
+
+# make demo – utdata från kundunderlag checkas aldrig in
+demo/

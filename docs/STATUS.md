@@ -15,9 +15,10 @@ Postgres efter omstart av containern: `pg_ctlcluster 16 main start`. `make check
 | 4 | klar | TESTDATA-register: 26/28 rätt utfall, 2 osäkra, 0 fel (92,9 %; 11.2 kräver ≥ 95 %, resten osäker); RSK-rader 6/6 (DoD); A3-11 hittas; Prixel Excel + urklipp |
 | 5 | klar | Furhoffs-utkastet har B201B, B202B, TS501, 5 frågor och radonoptionen (DoD ok); T9-text kontrolleras mot underlaget; .eml + Excelbilaga; Graph/Gmail-stubbar; T10 |
 | 6–8 | delvis | A.4 88/88 exakt; skala verifierad på båda planerna; otilldelat 16,5 % / 16,2 % (inkl. tvetydigt) – mål 2 % ej nått, varje sträcka listad med orsak i `make eval`; A.5 6/11 exakt, 5 flaggade; A3-5, A3-6, A3-13 hittas; FÖRKLARINGAR + MATRIS FÖR ISOLERING lästa (T2L) |
-| 6b | ej påbörjad | |
+| 6b | klar | `demo/markerad.pdf`: summering först, alla rör färgade per system × dimension, otilldelat/tvetydigt/utanför i egna färger, ritat som sidinnehåll (Adobe/Bluebeam); `mangdlista.xlsx` (rör, utanför, isolering, rördelar) |
 | UI | ej påbörjad | |
-| 9–12 | ej påbörjade | |
+| 12 (demo) | klar | `make demo` kör Årjäng hela vägen → `demo/` (artikellista, avvikelser, mängdlista, markerad PDF, .eml, Prixel) |
+| 9–11 | ej påbörjade | |
 
 ## Fas 2 – vad som finns
 
@@ -68,7 +69,7 @@ Postgres efter omstart av containern: `pg_ctlcluster 16 main start`. `make check
 
 - Otilldelat ≤ 2 %: plan 1 4,0 m + 2,75 m tvetydigt (W40/W – väntar på konsulten), plan 0 7,5 m varav 5,0 m i
   V-53-FE-_- (etiketter S02-P2 2,3 pt från linjen fäster inte – utred anknytningen för generaliserade familjer).
-- Fas 6b, UI, 9–12.
+- UI (SPEC 9), fas 9–11, KOMIGANG.md.
 
 Nya ritningar (Higab): testade och delvis rättade, se `docs/nya_ritningar_higab.md` (otilldelat 76 %/62 %/97 %;
 kvar: täta knippen, för stor rörgeometri, demonteringsblad i mängdningen, rasterbladet väg D).
