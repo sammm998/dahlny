@@ -22,7 +22,7 @@ from app.ai.schemas.classify import PageClassification, PageKind, TitleBlockRead
 from app.classify.patterns import ScaleRatio, dates, drawing_numbers, project_number, scale_ratios
 from app.config.settings import load_documents_config, load_thresholds
 from app.ingest.pdf_pages import PageFeatures, render_png
-from app.ingest.pdf_typed import page_textbox, rect
+from app.ingest.pdf_typed import page_text, page_textbox, rect
 
 DRAWING_KINDS: frozenset[str] = frozenset({"plan", "schematic", "section", "detail", "legend_only"})
 AI_UNAVAILABLE = (ProviderNotConfigured, ProviderError, AIError)
@@ -258,6 +258,13 @@ def read_title_block(
     else:
         conf = 0.0
         flags.append("title_block_not_read")
+    title_lines = (reading.title_lines or []) if reading and reading.found else []
+    purpose_text = " ".join(
+        [str(page_text(page)), *title_lines]
+    ).upper()  # stämplar står ofta utanför blocket
+    for purpose, markers in load_documents_config().purpose_markers.items():
+        if any(mk in purpose_text for mk in markers):
+            flags.append(f"purpose:{purpose}")  # t.ex. demonteringsritning – mängdas inte som inköp
     needs_review = conf < th.get("classify.auto_accept_confidence") or any("conflict" in f for f in flags)
     return TitleBlock(
         drawing_no=drawing_no,

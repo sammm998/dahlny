@@ -5,7 +5,13 @@ drawing_number:
   # W-50-1-1000: disciplin-kategori-plan-löpnummer (Bengt Dahlgren / BSAB-liknande)
   patterns:
     - '(?<![A-Z0-9-])(?P<no>[A-Z]{1,2}-\d{2}-\d{1,2}-[A-Z]?-?\d{3,4})(?![0-9])'
-  examples_ok: [W-50-1-1000, W-53-1-0900, W-50-8-1000, W-50-1-A-0014]
+    # V50-01-2711: disciplin+kategori-delnummer-löpnummer, ev. revisions-/handlingsbokstav och tillägg (-OMB)
+    - '(?<![A-Z0-9-])(?P<no>[A-Z]{1,2}\d{2}-\d{2}-\d{3,4}[A-Z]?(?:-[A-Z]{2,4})?)(?![0-9A-Z])'
+  examples_ok: [W-50-1-1000, W-53-1-0900, W-50-8-1000, W-50-1-A-0014, V50-01-2711, V50-01-2811D, V50-01-4212-OMB]
+
+# Bladets syfte ur titelblock/textlager. Ett demonteringsblad visar rör som ska rivas – det mängdas inte som inköp.
+purpose_markers:
+  demolition: [DEMONTERINGSRITNING, RIVNINGSRITNING, DEMONTERING, RIVNINGSPLAN]
 
 scale:
   # "1:50 (A1) 1:100 (A3)", "1:50", "SKALA 1:50 (1:100)"; fall (1:100 vid rör) tolkas aldrig här –

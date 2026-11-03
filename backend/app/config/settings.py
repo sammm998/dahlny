@@ -232,6 +232,7 @@ class DocumentsConfig(_Strict):
     page_kind_rules: list[PageKindRule]
     drawing_list: DrawingListConfig
     title_block: TitleBlockConfig
+    purpose_markers: dict[str, list[str]] = Field(default_factory=dict)
 
     @model_validator(mode="after")
     def _patterns_compile(self) -> DocumentsConfig:

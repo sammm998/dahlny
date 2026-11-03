@@ -172,6 +172,15 @@ def test_title_block_from_vision_is_validated(session_factory: sessionmaker[Sess
     assert tb.method == "vision" and not tb.needs_review
 
 
+def test_a_demolition_drawing_is_flagged_by_its_stamp(session_factory: sessionmaker[Session]) -> None:
+    fake = FakeProvider({T2: [title_block("W-50-1-1000"), title_block("W-50-1-1000")]})
+    with open_pdf(pdf_factory.drawing_set(list_rows=LIST, drawing_pages=1)) as doc:
+        plain = read_title_block(doc[1], page_features(doc[1]), client(session_factory, fake))
+        doc[1].insert_text((60, 60), "DEMONTERINGSRITNING", fontsize=12)
+        stamped = read_title_block(doc[1], page_features(doc[1]), client(session_factory, fake))
+    assert "purpose:demolition" not in plain.flags and "purpose:demolition" in stamped.flags
+
+
 def test_invented_drawing_number_format_is_rejected(session_factory: sessionmaker[Session]) -> None:
     fake = FakeProvider({T2: [title_block("PLAN 1")]})
     with open_pdf(pdf_factory.drawing_set(list_rows=LIST, drawing_pages=1)) as doc:

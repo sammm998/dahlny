@@ -39,5 +39,7 @@ Postgres efter omstart av containern: `pg_ctlcluster 16 main start`. `make check
 
 ## Kvar / nästa steg
 
-Fas 4: artikelregister, matchning, Prixel-export. Användaren skickade fyra nya ritningar (V50-01-2711, -2713,
--2811D, -4212-OMB; uppladdade, checkas aldrig in) att testa – körs efter fas 3.
+Fas 4: artikelregister, matchning, Prixel-export.
+
+Nya ritningar (Higab): testade och delvis rättade, se `docs/nya_ritningar_higab.md` (otilldelat 76 %/62 %/97 %;
+kvar: täta knippen, för stor rörgeometri, demonteringsblad i mängdningen, rasterbladet väg D).
