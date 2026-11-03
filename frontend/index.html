@@ -93,8 +93,8 @@ function NewProject({ onCreated }) {
       <button disabled=${busy}>${busy ? "Laddar upp …" : "Ladda upp och kör"}</button> <span class="sev-critical">${err}</span>
     </form>`}
     <div class="stub">${cfg.ai ? "AI-läsning: på." : "AI-läsning: av – " + cfg.ai_note + "."}
-      ${cfg.drawings ? " Ritningsmotorn: på." : " Ritningsmotorn (vvs_engine) är inte installerad på servern – ritningarna klassas men mängdas inte."}
-      Körningen tar några minuter; mail skickas aldrig.</div></div>`;
+      ${cfg.drawings ? " Ritningsmotorn: på." : " Ritningsmotorn (vvs_engine) är inte installerad på servern – ritningarna klassas men mängdas inte."} 
+      ${" "}Körningen tar några minuter; mail skickas aldrig.</div></div>`;
 }
 
 function App() {
