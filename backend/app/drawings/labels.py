@@ -641,7 +641,24 @@ def _combine(
     for lab in out:
         if lab.read_confidence < min_conf and "needs_review" not in lab.flags:
             lab.flags.append("needs_review")
-    return sorted(out, key=lambda r: (round(r.bbox[1]), r.bbox[0]))
+    return sorted(one_label_per_place(out), key=lambda r: (round(r.bbox[1]), r.bbox[0]))
+
+
+def one_label_per_place(labels: list[LabelResult]) -> list[LabelResult]:
+    """En läsning per ställe: ligger två etiketter på samma ställe (överlapp ≥ tiles.dedupe_iou av den mindre)
+    och är den enas text en del av den andras, är den kortare ett fragment – oftast text som skars av en bits
+    kant och lästes lika av båda läsarna. Fragmentet tas bort; den hela läsningen behålls med sin egen
+    konfidens (en flaggad hel läsning förblir flaggad – fragmentets enighet säger inget om resten).
+    Texter som inte är delar av varandra behålls båda."""
+    same_place = load_thresholds().get("tiles.dedupe_iou")
+    order = sorted(labels, key=lambda r: (-len(normalize(r.text)), -r.read_confidence, r.bbox))
+    kept: list[LabelResult] = []
+    for lab in order:
+        t = normalize(lab.text)
+        if any(overlap_of_smaller(k.bbox, lab.bbox) >= same_place and t in normalize(k.text) for k in kept):
+            continue
+        kept.append(lab)
+    return kept
 
 
 def _crop(page: pymupdf.Page, box: BBox) -> bytes:

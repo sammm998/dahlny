@@ -423,3 +423,15 @@ def test_rapidocr_maps_vertical_text_back_to_the_page() -> None:
     [(text, box, _score)] = reader.read(image)
     # tillbaka i originalet: x = y_r (50–60), y = h-1-x_r (59–89) – lodrät låda
     assert text == "AV20" and box == (50.0, 59.0, 60.0, 89.0)
+
+
+def test_a_fragment_inside_a_whole_reading_at_the_same_place_is_dropped() -> None:
+    from app.drawings.labels import LabelResult, one_label_per_place
+
+    whole = LabelResult("S01-P2-110", (100.0, 100.0, 160.0, 110.0), 0.0, 0.75, "vision", [], ["needs_review"])
+    part = LabelResult("S01-P2", (100.0, 100.0, 135.0, 110.0), 0.0, 0.98, "vision+ocr", [], [])
+    other = LabelResult("W40", (100.0, 112.0, 120.0, 122.0), 0.0, 0.98, "vision+ocr", [], [])
+    dash = LabelResult("=", (130.0, 104.0, 133.0, 106.0), 0.0, 0.98, "vision+ocr", [], [])
+    kept = one_label_per_place([part, whole, other, dash])
+    assert sorted(k.text for k in kept) == ["=", "S01-P2-110", "W40"]  # = är ingen del av etiketten
+    assert next(k for k in kept if k.text == "S01-P2-110").read_confidence == 0.75  # förblir flaggad
