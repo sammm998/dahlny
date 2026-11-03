@@ -217,7 +217,111 @@ beteckningarna bär avvikelse A3-13 (`UNKNOWN_LABEL_TOKEN`, fråga till konsulte
 Ska gränsen hållas tvetydig tills konsulten svarat behövs en regel som gör två beteckningar som bara skiljer
 sig i okända suffix till samma kandidatgrupp – inte byggd.
 
-## 4. Vad som behövs härnäst (inget byggt)
+## 4. Omgång 3 (2026-11-03): lagerregeln bakom flagga, mängdlista, material, otilldelat
+
+### Lagerregeln bara med T5
+
+Dahlvvvs `claude/t5-labels` @ `702ceb8`. Regeln (ett lager som bär systemkoden för en av bladets egna
+rörbeteckningar är en rörfamilj) är på bara för blad där en etikettfil har använts
+(`layer_name_families=None`, CLI `--layer-name-families auto|on|off`). Familjer som bara regeln tog in loggas
+(logging, filmen, `sheets/<n>/layer-name-rule.json`). Utan etikettfil ger Årjäng exakt samma mängder och andelar
+som före omgången. Motorns svit: 1 422 gröna.
+
+Korpusgrinden (manifestets blad kan bära `"labels": "/sökväg/t5.json"`):
+
+```bash
+# 1. Utan T5 – lagerregeln av; får inte bli sämre än main
+python engine/tools/corpus.py run manifest.json /tmp/korpus_utan_t5 --jobs 4
+python engine/tools/corpus.py gate /tmp/korpus_utan_t5/corpus.json engine/tests/data/corpus_baseline.json
+
+# 2. Med T5 – bara bladen som har "labels" i manifestet, lagerregeln på
+python engine/tools/corpus.py run manifest.json /tmp/korpus_med_t5 --jobs 4 --labels
+python engine/tools/corpus.py gate /tmp/korpus_med_t5/corpus.json engine/tests/data/corpus_baseline.json --only-read
+```
+
+### Mängdlista (Bilaga A, med T5)
+
+`eval/tools/quantity_list.py` (via `app/drawings/quantities.py`): en rad per system × material × dimension;
+suffix som underrader; okänt suffix flaggat med avvikelsen. Material som saknas fylls i ur systemets enda
+material i projektet (TB:s PNU-rader + ritningens etiketter), konfidens 0,85; flera material → tomt och
+`MATERIAL_UNRESOLVED`. TB ger: L9 → S13 (`PNU.215 … L9-S13 Tryckluft`); KV01 → K1, K5, E9; S01/S02 → P2, P3.
+
+| Beteckning | Material | Meter | Tvetydigt | Flaggor |
+| --- | --- | --- | --- | --- |
+| KV01-K1-15 | K1 | 16,16 | 6,64 | UNKNOWN_LABEL_TOKEN W, W40 (A3-13) |
+| &nbsp;&nbsp;(utan suffix) | | 0,15 | 6,63 | |
+| &nbsp;&nbsp;-W | | 12,36 | 0 | A3-13 |
+| &nbsp;&nbsp;-W40 | | 3,64 | 0,02 | A3-13 |
+| KV01-K1-28 | K1 | 1,20 | 0 | |
+| KV01-K5-15 | K5 | 2,35 | 0 | |
+| L9-S13-22 | S13 (TB + etikett, 0,85) | 11,03 | 0 | MATERIAL_FROM_SYSTEM |
+| L9-S13-28 | S13 (TB + etikett, 0,85) | 3,57 | 0 | MATERIAL_FROM_SYSTEM |
+| L9-S13 | S13 (TB, 0,85) | 0,29 | 0,02 | MATERIAL_FROM_SYSTEM |
+| S01-P2-110 | P2 | 13,71 | 3,09 | |
+| S01-P2-75 | P2 | 0,52 | 0,83 | |
+| S02-P2-110 | P2 | 14,85 | 0 | |
+| S02-P2-75 | P2 | 0,65 | 0 | |
+| S03-P2-110 | P2 | 12,16 | 0 | |
+| VV01-K1-15 | K1 | 5,56 | 0 | UNKNOWN_LABEL_TOKEN F (A3-13) |
+| &nbsp;&nbsp;-F | | 5,56 | 0 | A3-13 |
+| VV01-K5-15 | K5 | 0,51 | 0 | |
+
+Summa per system: KV01 19,70, L9 14,88, S01 14,23, S02 15,50, S03 12,16, VV01 6,07; totalt 82,55 m.
+
+### S01 DN75 på plan 0 (3,75 → 0,52 m)
+
+Ingen geometri har tappats; två DN75-sträckor har bytt status:
+
+| Sträcka | Före | Efter | Orsak |
+| --- | --- | --- | --- |
+| 2,25 m, etiketten `S01-P2` / `75` vid (783, 491) | S01-P2 DN75, bekräftad | tvetydig (`AMBIGUOUS_FLOW_BEYOND_THE_LABELLED_RUNS`, kandidat S01-P2-(L) DN110) | T5-filen har på samma ställe både `S01-P2` (0,98) och OCR:s felläsning `501-P2` (0,75). Blocket får en extra rad och etiketten inget ankare. En-läsning-per-ställe tar bara bort fragment vars text ingår i den andra. |
+| 1,05 m, etiketten `S01-P` / `75` vid (809, 691) | `S01-75-P` DN75 (skräpläsning – men riktigt DN75-rör) | bekräftad som **S01-P2 DN110** (`junction_dn_over_symbol_labels`) | Etiketten läses nu rätt (`S01-P2` / `75`), men röret slås ihop med DN110-ledningen. Troligen fel dimension. |
+| 0,52 m, `S01-P2` / `7` → `75` | DN7 (felläst) | S01-P2 DN75 | rätt |
+
+Två riktiga rör påverkas alltså: 2,25 m är inte längre bekräftade (tvetydiga) och 1,05 m har sannolikt fel
+dimension. Inget rättat.
+
+### Otilldelat per blad (ingen rättning gjord)
+
+`eval/tools/unassigned_map.py` ritar varje blad med otilldelat (rött, numrerat), tvetydigt (orange) och
+bekräftat (grönt), och rörbeteckningar som inte fäste (blå ruta); bilder och markerad PDF ligger utanför repot.
+
+**Plan 1 (W-50-1-1000): 4,83 m otilldelat (11,4 %), 6,66 m tvetydigt**
+
+| Grupp | Meter | Sträckor |
+| --- | --- | --- |
+| A – fortsättning på namngivet rör som ingen etikett når | 3,84 | #1 L9 1,99 m lodrätt längs väggen i verkstaden mellan `L9-S13-28` och knopplisten; #2 L9 0,91 m i kompressorrummet; #4/#6/#7 KV 0,49 + 0,23 + 0,22 m vid kompressorrummet och WC |
+| C – närliggande etikett har ledare som inte når något rör | 0,95 | #3 VV 0,69 m och #5 KV 0,26 m i WC: fem etiketters ledare (`S01-P3`, `VV01-K1-15-F`, `KV01-K1-15-W` ×2, `L9-Z8`) slutar i samma punkt (533, 695) där inget rör finns |
+| D – ingen rörbeteckning i närheten | 0,04 | #8 T1-stump |
+
+Också på plan 1:
+- Tvetydigt 6,63 m KV01-K1 DN15 (orange, överst i tvätthallen): röret fortsätter förbi de märkta sträckorna.
+  `KV01-K1-28-W40` (ingen ledare) och `KV01-K1-15` / `CL+1400` (ledaren når inget rör) står vid den.
+- `L9-28` läses rätt av T5 och motorn, men motorns grammatik byter tvillingtecken (2 → Z) för att passa bladets
+  mönster `A9-A9` och gör det till `L9-Z8`, som saknar dimension. Grammatikens omläsning gäller också T5:s säkra
+  läsningar.
+
+**Plan 0 (W-53-1-0900): 9,27 m otilldelat (19,3 %), 3,92 m tvetydigt**
+
+| Grupp | Meter | Sträckor |
+| --- | --- | --- |
+| B – närliggande etikett saknar ledare | 8,83 | #1 hela den streckade ledningen `KV01-E13-40` (PEM i mark). Etiketten `KV01-E13-40` står på ledningen utan ledare, och `KV01-E13` / `40` vid ledningens början fick inget ankare – KV01 har inget ankare alls på bladet |
+| A – fortsättning på namngivet rör | 0,44 | #2/#3 S03 och S01 0,22 m vardera förbi `ENTR. GRÄNS` (entreprenadgränsen) – sannolikt riktigt att de inte räknas |
+
+Också på plan 0: tvetydigt 3,92 m S01 (orange, kompressorrummet och WC) – se S01 DN75 ovan.
+
+**Grupperade orsaker (båda bladen):**
+
+1. Etikett på ledningen utan ledare (plan 0 #1, 8,83 m) – den största posten.
+2. Fortsättning förbi de märkta sträckorna som ingen etikett når (plan 1 grupp A 3,84 m, och det tvetydiga
+   6,63 m KV01 + 2,25 m S01).
+3. Ledare som slutar där inget rör finns (plan 1 grupp C 0,95 m; fem etiketter mot samma punkt i WC).
+4. Två läsningar av samma text på samma ställe ger en extra rad och inget ankare (`S01-P2` / `501-P2`, 2,25 m).
+5. Grammatikens tvillingomläsning skriver om T5:s säkra läsning (`L9-28` → `L9-Z8`).
+6. Förbi entreprenadgränsen (0,44 m) – troligen rätt som det är.
+
+## 5. Vad som behövs härnäst (inget byggt)
+
 
 
 1. Kör korpusgrinden (`tools/corpus.py`) på `claude/t5-labels` med och utan `--labels` innan något slås ihop –
