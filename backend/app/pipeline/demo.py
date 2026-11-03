@@ -24,6 +24,7 @@ from app.ai.client import AIClient
 from app.articles.match import MemoryArticleSource
 from app.articles.pipeline import match_items, positions
 from app.articles.register import read_register
+from app.config.settings import load_models_config
 from app.db.session import make_session_factory
 from app.drawings.checks import declared_scale_for_page
 from app.drawings.context import drawing_context
@@ -65,7 +66,12 @@ def _xlsx(header: list[str], rows: list[list[Any]], title: str) -> bytes:
 
 def run(inputs: Path, out: Path, register: Path | None, use_ai: bool) -> dict[str, Any]:
     out.mkdir(parents=True, exist_ok=True)
-    ai = AIClient(make_session_factory()) if use_ai else None
+    # tak per körning = projektets kostnadstak (models.yaml), så att en uppladdning aldrig kan dra iväg
+    ai = (
+        AIClient(make_session_factory(), budget_usd=load_models_config().cost_cap_usd_per_project)
+        if use_ai
+        else None
+    )
     files = sorted(p for p in inputs.iterdir() if p.suffix.lower() in (".pdf", ".zip"))
     p1 = analyze_files(load_inputs(files), ai)
     summary: dict[str, Any] = {"documents": [d.file.filename for d in p1.documents], "notes": []}

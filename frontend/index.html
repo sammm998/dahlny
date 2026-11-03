@@ -42,7 +42,7 @@ const { useState, useEffect } = React;
 const html = htm.bind(React.createElement);
 const api = (p, opt) => fetch(p, opt).then(r => { if (!r.ok) throw new Error(r.status); return r.json(); });
 const fmt = v => v === null || v === undefined || v === "" ? "–" : (typeof v === "number" ? v.toLocaleString("sv-SE", {maximumFractionDigits: 2}) : String(v));
-const VIEWS = [["projekt","Projekt"],["tb","TB-lista"],["ritning","Ritning"],["mangd","Mängdlista"],["avvikelser","Avvikelser"],["matchning","Matchning"],["forfragningar","Förfrågningar"],["export","Export"]];
+const VIEWS = [["nytt","+ Nytt projekt"],["projekt","Projekt"],["tb","TB-lista"],["ritning","Ritning"],["mangd","Mängdlista"],["avvikelser","Avvikelser"],["matchning","Matchning"],["forfragningar","Förfrågningar"],["export","Export"]];
 
 function Source({ pid, refs, onClose }) {
   const ref = (refs || []).find(r => r && r.page) || {};
@@ -65,6 +65,38 @@ function Editable({ value, onSave }) {
     <button onClick=${() => { onSave(v); setOn(false); }}>Spara</button></span>`;
 }
 
+function NewProject({ onCreated }) {
+  const [cfg, setCfg] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState("");
+  useEffect(() => { api("/api/config").then(setCfg).catch(() => setErr("API:t svarar inte.")); }, []);
+  const submit = e => {
+    e.preventDefault();
+    const fd = new FormData(e.target);
+    setBusy(true); setErr("");
+    fetch("/api/projects", { method: "POST", body: fd }).then(async r => {
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(j.detail || r.status);
+      onCreated(j.id);
+    }).catch(x => setErr(String(x.message || x))).finally(() => setBusy(false));
+  };
+  if (!cfg) return html`<div>${err || "Laddar …"}</div>`;
+  return html`<div><h2>Nytt projekt</h2>
+    ${!cfg.uploads ? html`<div class="stub">Uppladdning är avstängd tills ett lösenord är satt (<code>VSK_ACCESS_PASSWORD</code>) –
+      förfrågningsunderlag är kundmaterial och läggs aldrig på en öppen adress.</div>` : html`
+    <form onSubmit=${submit}>
+      <p><label>Projektnamn<br/><input name="name" required style=${{width: "420px"}} /></label></p>
+      <p><label>Förfrågningsunderlag – teknisk beskrivning och ritningar (PDF eller ZIP)<br/>
+        <input type="file" name="files" multiple required accept=".pdf,.zip" /></label></p>
+      <p><label>Artikelregister (CSV eller Excel, valfritt – utan det görs ingen matchning)<br/>
+        <input type="file" name="register" accept=".csv,.xlsx" /></label></p>
+      <button disabled=${busy}>${busy ? "Laddar upp …" : "Ladda upp och kör"}</button> <span class="sev-critical">${err}</span>
+    </form>`}
+    <div class="stub">${cfg.ai ? "AI-läsning: på." : "AI-läsning: av – " + cfg.ai_note + "."}
+      ${cfg.drawings ? " Ritningsmotorn: på." : " Ritningsmotorn (vvs_engine) är inte installerad på servern – ritningarna klassas men mängdas inte."}
+      Körningen tar några minuter; mail skickas aldrig.</div></div>`;
+}
+
 function App() {
   const [projects, setProjects] = useState([]);
   const [pid, setPid] = useState(null);
@@ -74,10 +106,23 @@ function App() {
   const [sheet, setSheet] = useState(null);
   const [msg, setMsg] = useState("");
   useEffect(() => { api("/api/projects").then(p => { setProjects(p); if (p.length) setPid(p[0].id); else setMsg("empty"); }).catch(() => setMsg("API:t svarar inte – starta backend (make dev).")); }, []);
-  const load = () => pid && api(`/api/projects/${pid}`).then(setB);
+  const [job, setJob] = useState(null);
+  const refresh = () => api("/api/projects").then(setProjects);
+  const load = () => pid && api(`/api/projects/${pid}`).then(x => { setB(x); setJob(null); }).catch(() =>
+    api(`/api/projects/${pid}/status`).then(st => { setB(null); setJob(st); if (st.state === "queued" || st.state === "running") setTimeout(load, 5000); else refresh(); }));
   useEffect(() => { load(); }, [pid]);
   const correct = (entity, id, field, old, nw) => api(`/api/projects/${pid}/corrections`, {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({entity, entity_id: id, field, old, new: nw})}).then(r => { setMsg(`Korrigering sparad${r.stored_in_db ? " i databasen" : " i projektets logg (databasen nås inte)"}.`); load(); });
   const S = refs => () => setSrc(refs);
+  const created = id => { refresh().then(() => { setPid(id); setView("projekt"); setMsg(""); }); };
+  if (view === "nytt" || (!b && msg === "empty")) return html`<div><header><h1>VS-Kalkyl</h1>
+    ${projects.length ? html`<button onClick=${() => setView("projekt")}>← Till projekten</button>` : ""}</header>
+    <main><${NewProject} onCreated=${created} />${msg === "empty" ? html`<p>Inga projekt ännu.</p>` : ""}</main></div>`;
+  if (!b && job) return html`<div><header><h1>VS-Kalkyl</h1>
+    <select value=${pid} onChange=${e => setPid(e.target.value)}>${projects.map(x => html`<option value=${x.id}>${x.name || x.id}</option>`)}</select>
+    <button onClick=${() => setView("nytt")}>+ Nytt projekt</button></header><main>
+    <h2>${job.name}</h2><p>Status: <b>${({queued: "i kö", running: "körs …", done: "klar", failed: "misslyckades"})[job.state] || job.state}</b></p>
+    <p>Filer: ${(job.files || []).join(", ")}</p>${(job.notes || []).map(n => html`<div class="stub">${n}</div>`)}
+    ${job.error ? html`<div class="stub sev-critical">${job.error}</div>` : ""}</main></div>`;
   if (!b && msg === "empty") return html`<div><header><h1>VS-Kalkyl</h1></header><main>
     <h2>Inga projekt ännu</h2>
     <p>Ett projekt är en körning av flödet på ett förfrågningsunderlag. Kör den och lägg utmappen i projektkatalogen
