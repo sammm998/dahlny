@@ -225,7 +225,7 @@ def test_unknown_suffix_is_reported_not_dropped(tmp_path: Path) -> None:
     [sheet] = VvsEngineSource().read_artifacts(make_artifacts(tmp_path)).sheets
     rt = load_reference_tables()
     messages = [f.message for f in check_tokens(sheet, {"K1", "KV"}, set(rt.materials) | set(rt.systems))]
-    assert messages == ["Okänt suffix 'W40' i 'KV01-K1-15-W40'"]
+    assert messages == ["Okänt suffix 'W40' i 'KV01-K1-15-W40' – fråga konsulten om betydelsen (tolkas inte)"]
 
 
 def test_check_takeoff_respects_skip_pages(tmp_path: Path) -> None:

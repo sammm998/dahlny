@@ -150,7 +150,8 @@ def check_tokens(sheet: SheetTakeoff, legend_codes: set[str], standard_codes: se
                         "UNKNOWN_LABEL_TOKEN",
                         "warning",
                         sheet.page,
-                        f"Okänt suffix {suffix!r} i {run.designation!r}",
+                        f"Okänt suffix {suffix!r} i {run.designation!r} – fråga konsulten om betydelsen "
+                        "(tolkas inte)",
                     )
                 )
     return out

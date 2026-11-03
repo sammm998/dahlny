@@ -117,6 +117,15 @@
       "subject": "skala W-50-8-1000",
       "description": "Ritningsförteckningen anger skala '-' för W-50-8-1000 (flödesschema), titelblocket anger 1:50 (A1) / 1:100 (A3).",
       "expected_by_phase": 1
+    },
+    {
+      "id": "A3-13",
+      "number": 13,
+      "rule_id": "UNKNOWN_LABEL_TOKEN",
+      "severity": "warning",
+      "subject": "suffix W40, W, F",
+      "description": "Suffixen W40, W och F i KV01-K1-15-W40, KV01-K1-15-W och VV01-K1-15-F finns inte i legenden. Fråga till konsulten om betydelsen; tolkas inte. Den tvetydiga gränsen mellan KV01-K1-W40 och KV01-K1-W (2,75 m på W-50-1-1000) förblir tvetydig tills konsulten svarat.",
+      "expected_by_phase": 6
     }
   ]
 }

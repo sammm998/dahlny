@@ -42,13 +42,15 @@ def test_children_reference_existing_parents(facit: ProjectFacit) -> None:
 
 def test_deviations_cover_appendix_a3(facit: ProjectFacit) -> None:
     devs = facit.deviations.deviations
-    assert sorted({d.number for d in devs}) == list(range(1, 13))
+    assert sorted({d.number for d in devs}) == list(range(1, 14))
     assert len({d.id for d in devs}) == len(devs)
     rule = {d.number: d.rule_id for d in devs}
     assert rule[1] == "TB_MENTIONED_NOT_ITEMIZED" and rule[5] == "MATERIAL_CODE_MISMATCH"
     # SPEC 13: fas 3 ska hitta 1–4 och 7–9 (1 hittas redan i fas 2), fas 8 ska hitta 5–6.
     assert all(d.expected_by_phase <= 3 for d in devs if d.number in {1, 2, 3, 4, 7, 8, 9})
     assert {d.expected_by_phase for d in devs if d.number in {5, 6}} == {8}
+    # 13 (2026-11-03): okända suffix W40/W/F – fråga till konsulten, hittas av ritningskontrollerna (fas 6)
+    assert rule[13] == "UNKNOWN_LABEL_TOKEN"
 
 
 def test_labels_match_appendix_a4(facit: ProjectFacit) -> None:

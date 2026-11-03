@@ -806,6 +806,7 @@ Viktig egenskap: ritningarnas all text (utom några rumsnamn) är ritad som linj
 10. `DECIDE_WITH_CLIENT` – snabbkopplingstyp tryckluft/tappvatten; vattenmätarkonsol med kommunen.
 11. `ACCESSORY_NOT_CONFIRMED` – B202B mot Prixel-artikel 142B1106 (rutgaller M125, vattenlås, ställben, skyddslock).
 12. `TITLEBLOCK_MISMATCH` (info) – ritningsförteckningen anger skala "-" för W-50-8-1000, flödesschemats titelblock 1:50 (A1) / 1:100 (A3) (tillagd 2026-11-02).
+13. `UNKNOWN_LABEL_TOKEN` – suffixen `W40`, `W` och `F` i `KV01-K1-15-W40`, `KV01-K1-15-W` och `VV01-K1-15-F` finns inte i legenden: fråga till konsulten, betydelsen gissas inte. Den tvetydiga gränsen mellan `KV01-K1-W40` och `KV01-K1-W` (2,75 m, W-50-1-1000) förblir tvetydig tills konsulten svarat (tillagd 2026-11-03).
 
 ### A.4 Etiketter som ska läsas (urval, tecken-exakt)
 

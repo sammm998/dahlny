@@ -79,7 +79,7 @@ def facit_summary(facit: ProjectFacit) -> list[tuple[str, str]]:
         ("ProjectRules", str(len(facit.project_rules.rules))),
         (
             "Avvikelser",
-            f"{len(facit.deviations.deviations)} (A.3 nr 1–12, nr 10 i två delar)",
+            f"{len(facit.deviations.deviations)} (A.3 nr 1–13, nr 10 i två delar)",
         ),
         (
             "Etiketter",
