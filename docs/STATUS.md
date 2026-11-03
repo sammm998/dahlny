@@ -14,7 +14,7 @@ Postgres efter omstart av containern: `pg_ctlcluster 16 main start`. `make check
 | 3 | klar (granskningsvyn byggs med UI:t) | A.3: 10/10 av avvikelserna fram till fas 3 (nr 1–4, 7–10, 12); 17 regler registrerade, 12 enhetstester |
 | 4 | klar | TESTDATA-register: 26/28 rätt utfall, 2 osäkra, 0 fel (92,9 %; 11.2 kräver ≥ 95 %, resten osäker); RSK-rader 6/6 (DoD); A3-11 hittas; Prixel Excel + urklipp |
 | 5 | klar | Furhoffs-utkastet har B201B, B202B, TS501, 5 frågor och radonoptionen (DoD ok); T9-text kontrolleras mot underlaget; .eml + Excelbilaga; Graph/Gmail-stubbar; T10 |
-| 6–8 | delvis (motorn integrerad, se `docs/t5_bilaga_a.md`) | |
+| 6–8 | delvis | A.4 88/88 exakt; skala verifierad på båda planerna; otilldelat 16,5 % / 16,2 % (inkl. tvetydigt) – mål 2 % ej nått, varje sträcka listad med orsak i `make eval`; A.5 6/11 exakt, 5 flaggade; A3-5, A3-6, A3-13 hittas; FÖRKLARINGAR + MATRIS FÖR ISOLERING lästa (T2L) |
 | 6b | ej påbörjad | |
 | UI | ej påbörjad | |
 | 9–12 | ej påbörjade | |
@@ -54,9 +54,21 @@ Postgres efter omstart av containern: `pg_ctlcluster 16 main start`. `make check
   `app/requests/replies.py`: T10, pris måste stå ordagrant i svaret. `app/tb/header.py`: projektnamn och beställare.
 - `make eval` skriver utkasten till `eval/reports/<projekt>/forfragningar/`.
 
+## Fas 6–8 – vad som finns
+
+- Motorn (`claude/t5-labels`): S01 DN75-beslutet (`DEAD_END_LABEL_KEEPS_DN`), pilspetsar (`SMALL_CLOSED_FIGURES_ARE_NOT_PIPE`),
+  lagret med tomt systemled (`GENERIC_SYSTEM_LAYER`, V-53-FE-_- på plan 0 mäts nu: 5,0 m, men etiketterna fäster
+  inte än – se kvar), rörlistor, rördimensioner, systemmallar.
+- dahlny: `app/drawings/context.py` (taggar per plan = största antal på något blad, schemats taggar, rörbeteckningar,
+  granskningsfynd → RuleContext), `app/drawings/legend_tables.py` (T2L, celler kontrolleras mot T5),
+  `app/drawings/estimates.py` (böjar, isolering ur TB-krav + matris). Adaptern tar `labels=` (T5-fil).
+- `make eval` (med `VVS_ENGINE_CMD`) kör T5 + motorn en gång och sparar i `eval/reports/<projekt>/`.
+
 ## Kvar / nästa steg
 
-Fas 6–8: ritningsdelen (beslut S01 DN75, lagret V-53-FE-_-, pilspetsar, symboler A.5, legender, isolering).
+- Otilldelat ≤ 2 %: plan 1 4,0 m + 2,75 m tvetydigt (W40/W – väntar på konsulten), plan 0 7,5 m varav 5,0 m i
+  V-53-FE-_- (etiketter S02-P2 2,3 pt från linjen fäster inte – utred anknytningen för generaliserade familjer).
+- Fas 6b, UI, 9–12.
 
 Nya ritningar (Higab): testade och delvis rättade, se `docs/nya_ritningar_higab.md` (otilldelat 76 %/62 %/97 %;
 kvar: täta knippen, för stor rörgeometri, demonteringsblad i mängdningen, rasterbladet väg D).

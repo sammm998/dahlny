@@ -192,10 +192,10 @@ def test_material_code_mismatch_and_unresolved() -> None:
 
 def test_quantity_vs_drawing_and_items_not_in_tb() -> None:
     res = TBResult([item("RA101", qty=2), item("B101P", qty=2)], [], [], [], [], [])
-    ctx = RuleContext(tb=res, drawing_tags={"RA101": 1, "B101P": 2, "B301B": 1})
+    ctx = RuleContext(tb=res, drawing_tags={"RA101": 1, "B101P": 2, "B301B": 1, "VD01": 1, "EI30": 2})
     [d] = run_rules(ctx, ["TB_QTY_VS_DRAWING"])
     assert "RA101" in d.message
-    [d] = run_rules(ctx, ["DRAWING_ITEM_NOT_IN_TB"])
+    [d] = run_rules(ctx, ["DRAWING_ITEM_NOT_IN_TB"])  # VD01/EI30: familjer som TB inte använder
     assert "B301B" in d.message
     assert run_rules(RuleContext(tb=res), ["TB_QTY_VS_DRAWING", "DRAWING_ITEM_NOT_IN_TB"]) == []
 

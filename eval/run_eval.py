@@ -244,6 +244,129 @@ def phase5_section(project_dir: Path, ai: Any, state: dict[str, Any]) -> list[st
     return [*lines, ""]
 
 
+def drawings_section(project_dir: Path, results: dict[str, str], state: dict[str, Any]) -> list[str]:
+    """Fas 6–8: T5-etiketter → vvs_engine → mängd, symboler och ritningsregler. Körningarna sparas i
+    eval/reports/<projekt>/ och återanvänds (ta bort katalogen för att köra om)."""
+    import importlib.util
+    import json
+    import os
+    import subprocess
+
+    from app.drawings.context import drawing_context
+    from app.drawings.source import DrawingSourceError
+    from app.drawings.vvs_engine import VvsEngineSource
+    from app.evaluation.phase3 import report_lines as dev_lines
+    from app.evaluation.phase3 import score_deviations
+    from app.rules.engine import RuleContext, run_rules
+
+    if "phase1" not in state:
+        return []
+    docs = [
+        d for d in state["phase1"].documents if any(p.kind.kind in ("plan", "schematic") for p in d.pages)
+    ]
+    if not docs:
+        return []
+    doc = docs[0]
+    pdf = project_dir / "input" / doc.file.filename.rsplit("/", 1)[-1]
+    out = REPORTS_DIR / project_dir.name
+    out.mkdir(parents=True, exist_ok=True)
+    plan_pages = {p.page_no for p in doc.pages if p.kind.kind == "plan"
+                  and "purpose:demolition" not in (p.title_block.flags if p.title_block else [])}  # fmt: skip
+    schem_pages = {p.page_no for p in doc.pages if p.kind.kind == "schematic"}
+    labels = out / "t5_labels.json"
+    lines = ["### Fas 6–8 – ritning (T5 + vvs_engine)", ""]
+    if not labels.exists():
+        pages = ",".join(str(n) for n in sorted(plan_pages | schem_pages))
+        cmd = [sys.executable, "-m", "app.drawings.labels", str(pdf), "--pages", pages, "--out", str(labels)]
+        subprocess.run(
+            cmd, cwd=Path(__file__).resolve().parents[1] / "backend", check=False, capture_output=True
+        )
+    engine_dir = out / "vvs_engine"
+    src = VvsEngineSource()
+    try:
+        if not (engine_dir / "freeze-manifest.json").exists():
+            if not os.environ.get("VVS_ENGINE_CMD"):
+                return [*lines, "ej mätt – sätt VVS_ENGINE_CMD (vvs_engine i egen miljö)", ""]
+            src.analyze(pdf, out, labels=labels if labels.exists() else None)
+        takeoff = src.read_artifacts(engine_dir)
+    except DrawingSourceError as exc:
+        return [*lines, f"ej mätt – {exc}", ""]
+    state["takeoff"], state["plan_pages"], state["schematic_pages"] = takeoff, plan_pages, schem_pages
+    from app.drawings.checks import declared_scale_for_page
+
+    declared = {p.page_no: declared_scale_for_page(p.title_block.scales if p.title_block else [],
+                                                   p.features.paper_size) for p in doc.pages}  # fmt: skip
+    ctx_d = drawing_context(takeoff, plan_pages, schem_pages, declared)
+    # etiketter (A.4)
+    spec = importlib.util.spec_from_file_location("label_metrics", EVAL_DIR / "tools" / "label_metrics.py")
+    if spec and spec.loader and labels.exists():
+        lm = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(lm)
+        facit = json.loads((project_dir / "expected" / "labels.json").read_text(encoding="utf-8"))
+        m = lm.measure(json.loads(labels.read_text(encoding="utf-8")), facit)
+        tot = m.get("total") or {}
+        if tot:
+            n = sum(tot.values())
+            results["Etikettläsning tecken-exakt (vektor-PDF)"] = (
+                f"{tot.get('exakt', 0)}/{n} exakt, {tot.get('flaggad', 0)} flaggade, "
+                f"{tot.get('felläst', 0) + tot.get('ofullständig', 0)} tysta fel"
+            )
+    # mängd per blad
+    lines += ["| Blad | Skala | Ritat m | Bekräftat m | Tvetydigt m | Otilldelat m | Andel "
+              "| Utanför entr.gräns m |",
+              "| --- | --- | --- | --- | --- | --- | --- | --- |"]  # fmt: skip
+    shares = []
+    for sh in takeoff.sheets:
+        if sh.page not in plan_pages or sh.coverage is None:
+            continue
+        c = sh.coverage
+        frac = c.unassigned_fraction or 0.0
+        shares.append(f"blad {sh.page}: {100 * frac:.1f} %")
+        lines.append(f"| {sh.page} | {sh.scale.state if sh.scale else '–'} | {c.drawn_m} | {c.confirmed_m} | "
+                     f"{c.ambiguous_m} | {c.unowned_m} | {100 * frac:.1f} % "
+                     f"| {c.outside_contract_m or 0} |")  # fmt: skip
+    results["Andel otilldelad rörlängd"] = "; ".join(shares) or "–"
+    results["Skala"] = ", ".join(f"blad {sh.page}: {sh.scale.state}" for sh in takeoff.sheets
+                                 if sh.page in plan_pages and sh.scale)  # fmt: skip
+    # varje kvarvarande otilldelad sträcka med orsak (motorns läsgranskning)
+    review = [(sh.page, r) for sh in takeoff.sheets if sh.page in plan_pages
+              for r in json.loads((engine_dir / "sheets" / str(sh.page - 1) / "reading-review.json")
+                                  .read_text(encoding="utf-8")).get("unnamed_runs", [])]  # fmt: skip
+    if review:
+        lines += ["", "Otilldelade sträckor (≥ 0,5 m) med orsak:", "",
+                  "| Blad | Meter | Lager | Var (pt) | Orsak |",
+                  "| --- | --- | --- | --- | --- |"]  # fmt: skip
+        lines += [f"| {pg} | {r['metres']} | {r['family'].split('|s|')[0]} | {r['at']} | {r['reason']} |"
+                  for pg, r in review]  # fmt: skip
+    # symboler (A.5)
+    sym = json.loads((project_dir / "expected" / "symbols.json").read_text(encoding="utf-8"))
+    exp: dict[tuple[str, str], int] = {}
+    for c in sym["counts"]:
+        if c["tag"]:
+            key = (c["source"], c["tag"].split(" ")[0])
+            exp[key] = exp.get(key, 0) + c["count"]
+    lines += ["", "| Symbol (A.5) | Var | Facit | Ritning | Bedömning |", "| --- | --- | --- | --- | --- |"]
+    exact = 0
+    for (where, tag), n in sorted(exp.items()):
+        got = (ctx_d.plan_tags if where == "plan" else ctx_d.schematic_tags).get(tag)
+        ok = got == n
+        exact += ok
+        lines.append(
+            f"| {tag} | {where} | {n} | {got if got is not None else '–'} | {'ok' if ok else 'flaggad'} |"
+        )
+    results["Symbolantal"] = f"{exact}/{len(exp)} exakt, {len(exp) - exact} flaggade för granskning"
+    # ritningsregler (A.3 nr 5, 6, 13)
+    ctx = RuleContext(tb=state.get("tb"), document=state.get("tb_document", "TB"),
+                      drawing_findings=ctx_d.findings, drawing_tags=ctx_d.plan_tags,
+                      drawing_pipe_labels=ctx_d.pipe_labels)  # fmt: skip
+    devs = run_rules(ctx, ["MATERIAL_CODE_MISMATCH", "TB_QTY_VS_DRAWING", "UNKNOWN_LABEL_TOKEN",
+                           "DRAWING_ITEM_NOT_IN_TB", "UNASSIGNED_PIPE", "SCALE_DISAGREEMENT"])  # fmt: skip
+    state["drawing_deviations"] = devs
+    late = [c for c in score_deviations(devs, project_dir / "expected", 8) if c.phase >= 6]
+    lines += ["", *dev_lines(late, devs, "Fas 6–8 – avvikelser (A.3 nr 5, 6, 13)"), ""]
+    return lines
+
+
 def phase1_section(
     project_dir: Path, facit: ProjectFacit, ai: Any, ai_note: str, state: dict[str, Any]
 ) -> list[str]:
@@ -303,6 +426,7 @@ def evaluate_project(project_dir: Path, require_inputs: bool, use_ai: bool = Tru
         lines += phase3_section(project_dir, state)
         lines += phase4_section(project_dir, ai, results, state)
         lines += phase5_section(project_dir, ai, state)
+        lines += drawings_section(project_dir, results, state)
     else:
         lines += ["### Fas 1", "", "ej mätt – indatafilerna finns inte lokalt (se eval/README.md)", ""]
 

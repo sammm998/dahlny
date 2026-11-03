@@ -416,9 +416,15 @@ def drawing_item_not_in_tb(ctx: RuleContext) -> list[DeviationDraft]:
     if ctx.tb is None or not ctx.drawing_tags:
         return []
     known = {it.designation for it in ctx.tb.items if it.designation}
+    # bara objektfamiljer som TB själv använder (B…, TS…, AV…): andra disciplinernas taggar på samma blad
+    # (brandklass, ventilation, el) är inte VS-poster som saknas
+    families = {re.match(r"[A-ZÅÄÖ]+", k).group(0) for k in known if re.match(r"[A-ZÅÄÖ]+", k)}  # type: ignore[union-attr]
     obj = re.compile(load_label_grammar().object.pattern)
     out = []
     for tag, n in sorted(ctx.drawing_tags.items()):
+        fam = re.match(r"[A-ZÅÄÖ]+", tag)
+        if fam is None or fam.group(0) not in families:
+            continue
         if obj.fullmatch(tag) and tag not in known and not any(tag.startswith(k) for k in known if k):
             out.append(
                 DeviationDraft(

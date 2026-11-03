@@ -68,7 +68,9 @@ class VvsEngineSource:
 
     # ------------------------------------------------------------------ körning
 
-    def analyze(self, pdf_path: Path, work_dir: Path) -> DrawingTakeoff:
+    def analyze(self, pdf_path: Path, work_dir: Path, labels: Path | None = None) -> DrawingTakeoff:
+        """labels: T5-etikettfil (app/drawings/labels.py) – motorn byter sin text mot den och behåller
+        geometrin."""
         out_dir = work_dir / "vvs_engine"
         out_dir.mkdir(parents=True, exist_ok=True)
         cmd = [
@@ -80,6 +82,7 @@ class VvsEngineSource:
             "--name",
             pdf_path.stem,
             *self.rule_args(),
+            *(["--labels", str(labels)] if labels is not None else []),
         ]
         try:
             # Kommandot kommer från config/miljö, aldrig från användarens indata.

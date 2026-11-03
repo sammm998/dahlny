@@ -69,6 +69,11 @@ tasks:
     escalation: [claude-opus-5-5]
     effort: medium
     description: TB-strukturering
+  T2L:  # Legendtabeller på ritningen (FÖRKLARINGAR, MATRIS FÖR ISOLERING), SPEC 6.4 / A.5
+    model: claude-sonnet-5-5
+    escalation: [claude-opus-5-5]
+    effort: medium
+    description: Tabell på ritning (vision) – rubriker och celler ordagrant
   T3G:  # Generella krav (ProjectRule) ur hela TB:n, SPEC 6.2 steg 7
     model: claude-sonnet-5-5
     escalation: [claude-opus-5-5]
