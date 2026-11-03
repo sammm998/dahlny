@@ -1,0 +1,16 @@
+# Byggkontexten är repots rot. Förfrågningsunderlag, nycklar och lokala data skickas aldrig med.
+.git
+.env
+.env.*
+!.env.example
+**/.venv
+**/__pycache__
+**/.mypy_cache
+**/.ruff_cache
+**/.pytest_cache
+**/*.egg-info
+backend/tests
+eval
+data
+storage
+frontend/node_modules

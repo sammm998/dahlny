@@ -37,7 +37,7 @@ services:
     volumes: [minio-data:/data]
 
   backend:
-    build: ./backend
+    build: {context: ., dockerfile: backend/Dockerfile}
     env_file: [{path: .env, required: false}]
     environment:
       DATABASE_URL: postgresql+psycopg://vskalkyl:vskalkyl@db:5432/vskalkyl
@@ -50,7 +50,7 @@ services:
       redis: {condition: service_started}
 
   worker:
-    build: ./backend
+    build: {context: ., dockerfile: backend/Dockerfile}
     env_file: [{path: .env, required: false}]
     environment:
       DATABASE_URL: postgresql+psycopg://vskalkyl:vskalkyl@db:5432/vskalkyl
