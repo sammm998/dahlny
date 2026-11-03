@@ -267,3 +267,14 @@ def test_real_engine_on_bilaga_a_scale(tmp_path: Path) -> None:
         assert sheet.scale is not None and sheet.scale.verified, (page, sheet.scale)
         assert sheet.scale.meters_per_pt == pytest.approx(m_per_pt(50), rel=1e-3)
         assert check_scale(sheet, declared) == [], page
+
+
+def test_engine_rules_follow_the_thresholds() -> None:
+    """Etikett utan ledare (SPEC 6.4.3 h.2): avstånd, konfidens, tvetydighet och parallellitet styrs av
+    thresholds.yaml och skickas till motorn som --rule."""
+    args = VvsEngineSource(command=["vvs-takeoff"]).rule_args()
+    pairs = dict(a.split("=", 1) for a in args[1::2])
+    assert args[0::2] == ["--rule"] * len(pairs)
+    assert pairs["semantics.proximity.LEADERLESS_MM"] == "6.0"
+    assert pairs["semantics.proximity.CONFIDENCE"] == "0.8"
+    assert pairs["semantics.proximity.AMBIGUITY_RATIO"] == "1.5"

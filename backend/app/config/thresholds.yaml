@@ -61,6 +61,7 @@ assign:
   proximity_max_mm_paper: 6.0        # 6.4.3 h.2
   proximity_confidence: 0.8
   proximity_ambiguity_ratio: 1.5
+  proximity_parallel_deg: 10.0       # h.2 – så mycket får röret avvika från textens riktning och vara parallellt
   branch_inherited_dim_confidence: 0.6   # h.3
   branch_legend_dim_confidence: 0.85     # h.3
   max_unassigned_length_fraction: 0.02   # h.5 / UNASSIGNED_PIPE

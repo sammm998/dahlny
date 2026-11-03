@@ -251,6 +251,8 @@ class VvsEngineConfig(_Strict):
     unknown_tier_confidence: float = Field(ge=0, le=1)
     confirmed_states: list[str]
     verified_scale_states: list[str]
+    # motorns inställbara regel-id → nyckel i thresholds.yaml (ett värde, en källa: VS-Kalkyls trösklar)
+    rules_from_thresholds: dict[str, str] = Field(default_factory=dict)
 
 
 class DrawingsConfig(_Strict):

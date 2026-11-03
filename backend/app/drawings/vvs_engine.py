@@ -22,7 +22,7 @@ import subprocess
 from pathlib import Path
 from typing import Any
 
-from app.config.settings import VvsEngineConfig, load_drawings_config, load_label_grammar
+from app.config.settings import VvsEngineConfig, load_drawings_config, load_label_grammar, load_thresholds
 from app.drawings.source import (
     DrawingSourceError,
     DrawingTakeoff,
@@ -68,7 +68,16 @@ class VvsEngineSource:
     def analyze(self, pdf_path: Path, work_dir: Path) -> DrawingTakeoff:
         out_dir = work_dir / "vvs_engine"
         out_dir.mkdir(parents=True, exist_ok=True)
-        cmd = [*self.command, "analyze", str(pdf_path), "--out", str(out_dir), "--name", pdf_path.stem]
+        cmd = [
+            *self.command,
+            "analyze",
+            str(pdf_path),
+            "--out",
+            str(out_dir),
+            "--name",
+            pdf_path.stem,
+            *self.rule_args(),
+        ]
         try:
             # Kommandot kommer från config/miljö, aldrig från användarens indata.
             proc = subprocess.run(
@@ -85,6 +94,14 @@ class VvsEngineSource:
             tail = (proc.stderr or proc.stdout or "").strip().splitlines()[-5:]
             raise DrawingSourceError(f"vvs_engine avslutades med kod {proc.returncode}: " + " | ".join(tail))
         return self.read_artifacts(out_dir, expected_sha256=_sha256(pdf_path))
+
+    def rule_args(self) -> list[str]:
+        """Motorns regler som VS-Kalkyls trösklar styr (drawings.yaml rules_from_thresholds)."""
+        th = load_thresholds()
+        out = []
+        for rule_id, key in sorted(self.config.rules_from_thresholds.items()):
+            out += ["--rule", f"{rule_id}={th.get(key)}"]
+        return out
 
     # ------------------------------------------------------------------ artefakter
 

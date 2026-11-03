@@ -16,3 +16,9 @@ vvs_engine:
   # Motorns evidence_state → hur raden behandlas
   confirmed_states: [CONFIRMED]
   verified_scale_states: [VERIFIED]
+  # Motorns regler som styrs av VS-Kalkyls trösklar (skickas som --rule ID=VÄRDE). SPEC 6.4.3 h.
+  rules_from_thresholds:
+    semantics.proximity.LEADERLESS_MM: assign.proximity_max_mm_paper
+    semantics.proximity.CONFIDENCE: assign.proximity_confidence
+    semantics.proximity.AMBIGUITY_RATIO: assign.proximity_ambiguity_ratio
+    semantics.proximity.PARALLEL_DEG: assign.proximity_parallel_deg
