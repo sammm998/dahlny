@@ -22,9 +22,12 @@ cost_cap_usd_per_project: 30.0   # beslut 2026-11-02; används också som tak f�
 # Tak för etikettläsningen (T5T/T5/T5R/T5X) per ritningsblad. Nås det läses resten av bladet bara med OCR
 # (flaggat för granskning). Beslut 2026-11-02: under 1 USD per ritning.
 labels_budget_usd_per_sheet: 1.0
-# Vad Sonnet läser i T5: "labels" = bara utsnitt av etiketter där Haiku (T5T) och OCR inte är överens eller
-# bara en av dem såg texten (T5R, 600 dpi); "tiles" = hela bitar som Haiku sorterat som svåra (T5).
-labels_routing: labels
+# Vad Sonnet läser i T5:
+#   all    = varje bit med bläck (ingen OCR-grind, ingen Haiku) – baslinjen, beslut 2026-11-03 (Bilaga A: 87/88)
+#   tiles  = bitar med OCR-text som Haiku (T5T) sorterat som svåra
+#   labels = bara utsnitt där Haiku och OCR inte enas (T5R) – billigast, men Haiku och OCR kan göra samma fel
+#            och godkännas tillsammans (Bilaga A: `Z` för `2`, `S01-P2` för `S01-P2-110`); därför inte standard
+labels_routing: all
 
 providers:
   anthropic:

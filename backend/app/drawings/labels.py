@@ -342,13 +342,16 @@ def _read_tile(
 ) -> _TileOutcome:
     """Haiku (T5T) sorterar och läser biten. Körs i en tråd: ingen rendering här (PyMuPDF är inte trådsäkert).
 
+    labels_routing = all: ingen sortering, varje bit till T5 (Sonnet).
     labels_routing = labels: Haikus läsning används; etiketter där Haiku och OCR inte enas läses om som
     utsnitt (T5R). labels_routing = tiles: svår bit → T5 (Sonnet), utom när Haiku och OCR läser varje
     etikett lika. Ogiltigt svar från T5T → T5 i båda lägena."""
     run_ids: list[uuid.UUID] = []
     stats = TileStats()
+    tri = None
     try:
-        tri = ai.structured_result("T5T", _tile_parts(tile, png), TileTriage, project_id=project_id)
+        if ai.config.labels_routing != "all":
+            tri = ai.structured_result("T5T", _tile_parts(tile, png), TileTriage, project_id=project_id)
     except AITaskFailed:
         tri = None
     if tri is not None:
@@ -464,7 +467,7 @@ def _read_page(
         tile_ocr: list[Reading] = []
         if ocr is not None:
             found = ocr.read(arr)
-            if not found:
+            if not found and ai is not None and ai.config.labels_routing != "all":
                 stats.no_text += 1
                 continue  # OCR först: utan text (ram, linjer, skraffering) går biten aldrig till AI
             for text, box, score in found:

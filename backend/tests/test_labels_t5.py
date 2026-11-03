@@ -283,6 +283,23 @@ def test_label_routing_unconfirmed_single_reader_stays_flagged(
     assert lab.read_confidence < 0.8 and "needs_review" in lab.flags and lab.text == "KV01-K1-15"
 
 
+def test_all_routing_reads_every_inked_tile_with_sonnet_and_no_haiku(
+    pdf_page: Any, session_factory: sessionmaker[Session]
+) -> None:
+    res, fake = run(
+        pdf_page,
+        session_factory,
+        vision=vision_reply("KV01-K1-15"),
+        ocr_text=None,
+        use_ocr=True,
+        routing="all",
+    )
+    called = models_called(fake)
+    assert T5T not in called and called.count(T5) == res.tiles_read > 0  # även bitar där OCR inte såg text
+    [lab] = res.labels
+    assert lab.method == "vision" and res.stats.no_text == 0 and res.stats.t5 == res.tiles_read
+
+
 def test_cut_text_is_reread_only_without_a_whole_reading_in_a_neighbour() -> None:
     page: BBox = (0.0, 0.0, 600.0, 400.0)
     left, right = Tile(1, 0, (0.0, 0.0, 245.0, 245.0), 300), Tile(1, 1, (196.0, 0.0, 441.0, 245.0), 300)
