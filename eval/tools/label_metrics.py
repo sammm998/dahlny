@@ -6,7 +6,8 @@
 (eval/tools/vvs_engine_text_rows.py) och T5 (python -m app.drawings.labels) skriver den.
 
 Per facitetikett:
-- exakt     – texten finns tecken för tecken (flerordstext även som grannord på samma rad eller raden under);
+- exakt     – texten finns tecken för tecken (flerordstext även som grannord eller grannrader på samma linje
+              eller raden under);
 - flaggad   – inte exakt, men en närliggande läsning finns och den är markerad för granskning
               (T5: read_confidence < 0,8 eller needs_review; vvs_engine: '?' i texten eller okända tecken);
 - felläst   – hela etiketten är läst men med fel tecken (samma efter förväxlingarna O/0, Z/2, S/5,
@@ -71,12 +72,33 @@ def _words_adjacent(label: str, rows: list[dict[str, Any]]) -> bool:
     return any(chain(1, r) for r in by_word[words[0]])
 
 
+def _rows_adjacent(label: str, rows: list[dict[str, Any]]) -> bool:
+    """Flerordstext läst som två rader med flera ord var ('VVB' över '55 LITER'): raderna i följd blir
+    texten, på samma linje bredvid varandra eller på raden under i samma spalt."""
+    t = norm(label)
+    for a in rows:
+        ta = norm(a["text"])
+        if not a.get("bbox") or not t.startswith(ta + " "):
+            continue
+        rest = t[len(ta) + 1 :]
+        for b in rows:
+            if b is a or not b.get("bbox") or norm(b["text"]) != rest:
+                continue
+            pb, rb = a["bbox"], b["bbox"]
+            h = max(pb[3] - pb[1], rb[3] - rb[1], 1.0)
+            beside = 0 <= rb[0] - pb[2] <= 3 * h and abs((pb[1] + pb[3]) / 2 - (rb[1] + rb[3]) / 2) <= 0.6 * h
+            below = -0.3 * h <= rb[1] - pb[3] <= 1.0 * h and abs(rb[0] - pb[0]) <= 2 * h
+            if beside or below:
+                return True
+    return False
+
+
 def classify(label: str, rows: list[dict[str, Any]], facit_texts: set[str]) -> tuple[str, str | None]:
     t = norm(label)
     texts = [norm(r["text"]) for r in rows]
     if t in texts or any(t in x.split() for x in texts) or (" " in t and any(t in x for x in texts)):
         return "exakt", t
-    if _words_adjacent(label, rows):
+    if _words_adjacent(label, rows) or _rows_adjacent(label, rows):
         return "exakt", t
     near = []
     for r, x in zip(rows, texts, strict=True):
