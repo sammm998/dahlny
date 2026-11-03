@@ -125,10 +125,102 @@ Bekräftade meter per system × material × dimension (material ur bladets egen 
 
 Till det kommer L9 och S02 ovan, som inte är tvetydiga utan inte mätta alls.
 
-## 3. Vad som behövs härnäst (inget byggt)
+## 3. Omgång 2 (2026-11-03): höjdnoter, rörfamiljer och staplade etiketter
 
-1. **Höjdnoter i motorns grammatik:** `VG±…` (vattengång) ska behandlas som `CL` – en not om var röret ligger,
-   inte ett rör till (`rows_needing_a_pipe`). Det är en ny regel i motorn, och den bör prövas på fler projekt
-   än Årjäng innan den läggs in.
-2. **L9 på plan 1:** utred varför L9-ankarna slutade fästa.
-3. Kör korpusgrinden (`tools/corpus.py`) med och utan `--labels` innan något slås ihop.
+Gren `claude/t5-labels` i Dahlvvvs, commit `b588c3d`. Motorns svit: 1 421 gröna (utom miljötestet
+`test_image_dependencies`, som på main). Ingen PR, ingen sammanslagning – korpusgrinden körs lokalt först.
+
+### Vad som ändrades i motorn
+
+- **Höjdnoter är aldrig rör** (svensk standardnotation, SPEC Bilaga B): `CL` och `VG` följt av en höjd, med
+  tecknet `+`, `-`, `+-`, `-+`, `±` eller inget. `is_height_note`, `is_code_like` säger nej, radrollen blir
+  `elevation`. En höjd med tecknet `+-`/`±` (tecknet enligt konsulten) bärs utan enhet, så ingen lodrät längd
+  räknas ur den. Enhetstester för varianterna.
+- **Ett lager som bär bladets systemkod är en rörfamilj.** Förut godkändes ett rörlager bara om någon ledare
+  råkade rösta på det. S02:s lager på plan 0 fick aldrig någon egen röst (ledarna slutar på streck som
+  textläsaren tagit som tecken) och kom in bara via en grannpennas namnmall; L9:s lager på plan 1 fick sin enda
+  röst från en linje mellan två textblock. När T5 läste texten vid linjens andra ände (`ANSL. TRYCKLUFT`,
+  `AV203-20`) gick linjen till det blocket, och hela L9-lagret föll bort. Nu: ett lager vars namn bär
+  systemkoden för en av bladets egna rörbeteckningar (`V-53-FE-_S02-` ↔ `S02-P2-110`, `V-52F-FE-_L9-` ↔ `L9`),
+  som ser ut som rör och ritas kraftigare än bladets skrivpenna, är en rörfamilj. Textlagret med samma kod
+  (`V-53--T-_S02`, 0,72 pt) är en skrivpenna och tas inte.
+- **Staplade etiketter:** T5 levererar `L9` / `28` / `22` som tre rader, inte sammanslaget; motorn gör en enhet
+  av dem med DN från dimensionsraderna, och ledaren går till stigarsymbolen. Det staplade var inte felet – det
+  var att L9-lagrets enda röst hängde på en linje vars ägare inte går att avgöra ur geometrin. Rättat generellt
+  genom regeln ovan, inte genom att flytta linjen.
+- Lokal regression (`data/local_facit/t5_labels.json`, checkas inte in): S01/S02/S03 på plan 0 och L9/KV01 på
+  plan 1 ska vara rörfamiljer och få meter med etikettfilen; ingen höjdnot får bli rörbeteckning.
+
+### Resultat: före (motorn utan T5) → nya regler utan T5 → nya regler med T5
+
+| | Blad 1 – plan 1 | Blad 2 – plan 0 | Blad 3 – flödesschema |
+| --- | --- | --- | --- |
+| Otilldelad andel | 27,5 % → 74,7 % → **11,4 %** | 27,0 % → 26,2 % → **19,3 %** | 100 % (mäts inte) |
+| Tvetydig andel | 0 % → 0 % → 15,8 % | 3,2 % → 3,2 % → 8,2 % | – |
+| Bekräftade meter | 13,94 → 14,60 → **40,66** | 44,52 → 44,52 → **41,89** | 0 |
+| Otilldelade meter | 3,55 → 29,01 → 4,83 | 14,32 → 13,72 → 9,26 | – |
+
+Mellankolumnen visar regeln om systemlager utan T5: på plan 1 blir KV- och VV-lagren rörfamiljer, men utan T5
+kan motorn inte läsa deras etiketter, så 29 m rör syns men står otilldelade. Bekräftade meter ändras knappt.
+Regeln gäller alla ritningar, inte bara Årjäng – därför korpusgrinden.
+
+Bekräftade meter per system × material × dimension (efter, med T5):
+
+| Blad | System | Material | DN | Före | Efter |
+| --- | --- | --- | --- | --- | --- |
+| 1 | KV01 | K1 koppar, hårda | 15 | 0 | 16,15 |
+| 1 | KV01 | K1 koppar, hårda | 28 | 0 | 1,20 |
+| 1 | KV01 | K5 koppar, förkromade | 15 | 0 | 2,35 |
+| 1 | VV01 | K1 koppar, hårda | 15 | 0 | 5,56 |
+| 1 | VV01 | K5 koppar, förkromade | 15 | 0 | 0,51 |
+| 1 | L9 | S13 Mapress | 22 | 0 | 5,74 † |
+| 1 | L9 | S13 Mapress | 28 | 2,74 | 0,64 |
+| 1 | L9 | – | 22 | 5,29 | 5,29 |
+| 1 | L9 | – | 28 | 0,17 | 2,93 |
+| 1 | L9 | – | – | 5,74 | 0,29 |
+| 2 | S01 | P2 PP-rör, markavlopp | 110 | 12,59 | 13,71 |
+| 2 | S01 | P2 | 75 | 3,75 ‡ | 0,52 |
+| 2 | S01 | P2 | 7 § | 0,52 | 0 |
+| 2 | S02 | P2 | 110 | 14,85 | 14,85 |
+| 2 | S02 | P2 | 75 | 0 | 0,65 |
+| 2 | S02 | P2 | 7 § | 0,65 | 0 |
+| 2 | S03 | P2 | 110 | 12,16 | 12,16 |
+
+† `L9-S13-22` lästes förut som `L9-S1? 22` utan dimension (5,74 m "L9 –"); nu med DN22.
+‡ 2,63 m `S01-P2-75` + 1,12 m skräpläsningen `S01-75-P`. § motorns avkortade `…-7` av `…-75`; DN7 finns inte.
+
+**Summa per system, hela projektet (bekräftade meter, före → nya regler utan T5 → med T5):**
+
+| System | Före | Regler utan T5 | Med T5 |
+| --- | --- | --- | --- |
+| KV01 | 0 | 0 | 19,70 |
+| VV01 | 0 | 0 | 6,07 |
+| L9 | 13,94 | 14,60 | 14,89 |
+| S01 | 16,86 | 16,86 | 14,23 |
+| S02 | 15,50 | 15,50 | 15,50 |
+| S03 | 12,16 | 12,16 | 12,16 |
+| **Summa** | **58,46** | **59,12** | **82,55** |
+
+### Tvetydiga rör efter (och varför)
+
+| Blad | Meter | Skäl | Kandidater |
+| --- | --- | --- | --- |
+| 1 | 6,63 | `AMBIGUOUS_FLOW_BEYOND_THE_LABELLED_RUNS` – röret fortsätter förbi de märkta sträckorna, ingen etikett säger vad det heter där | KV01-K1 DN15 |
+| 1 | 0,04 | `SYSTEM_CONFLICT` – två system möts i samma punkt | KV01-K1-W40 DN15, L9 |
+| 2 | 2,25 | `AMBIGUOUS_FLOW_BEYOND_THE_LABELLED_RUNS` | S01-P2-(L) DN110 |
+| 2 | 0,88 | `AMBIGUOUS_BRANCH` – förgrening där båda dimensionerna kan fortsätta | S01-P2 DN110, S01-P2 DN75 |
+| 2 | 0,79 | `AMBIGUOUS_BRANCH` | S01-P2-(L) DN110, S01-P2 DN75 |
+
+**W40/W-gränsen (2,75 m):** med L9-familjen i rörgrafen avgör motorn nu gränsen mellan `KV01-K1-15-W40` och
+`KV01-K1-15-W` ur rörnätets form (W: 8,60 → 12,36 m, W40: 3,91 → 3,64 m) – inte ur suffixens betydelse. Båda
+beteckningarna bär avvikelse A3-13 (`UNKNOWN_LABEL_TOKEN`, fråga till konsulten), så metrarna är markerade.
+Ska gränsen hållas tvetydig tills konsulten svarat behövs en regel som gör två beteckningar som bara skiljer
+sig i okända suffix till samma kandidatgrupp – inte byggd.
+
+## 4. Vad som behövs härnäst (inget byggt)
+
+
+1. Kör korpusgrinden (`tools/corpus.py`) på `claude/t5-labels` med och utan `--labels` innan något slås ihop –
+   regeln om systemlager ändrar vilka lager som räknas som rör på alla ritningar.
+2. Konsultens svar om `W40`, `W` och `F` (A3-13).
+3. Linjen mellan `L9` och `ANSL. TRYCKLUFT` på plan 1: vems ledare den är går inte att avgöra ur geometrin.

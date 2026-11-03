@@ -54,7 +54,7 @@ frontend/             granskningsgränssnitt (från fas 3)
 | --- | --- | --- |
 | 0 | Repo, Docker, DB, CI, AIClient med loggning och cache, config-filer, facit | Klar; `make ai-smoke` grön |
 | 1 | Intag, sidklassning, titelblock, ritningsförteckning | Klar: Bilaga A **23/23** med T1/T2 (9/23 med `--no-ai`), AI-kostnad ≈ 0,03 USD |
-| 6–8 | Ritningsmängder: integrera `vvs_engine` (SPEC 6.4.7) | Adapter + kontroller klara; T5 88/88 på Bilaga A; T5-etiketter i motorn på Dahlvvvs-grenen `claude/t5-labels` – se [docs/t5_bilaga_a.md](docs/t5_bilaga_a.md) (L9 och S02 mäts inte än) |
+| 6–8 | Ritningsmängder: integrera `vvs_engine` (SPEC 6.4.7) | Adapter + kontroller klara; T5 88/88 på Bilaga A; T5-etiketter i motorn på Dahlvvvs-grenen `claude/t5-labels` (bekräftade meter 58,46 → 82,55) – se [docs/t5_bilaga_a.md](docs/t5_bilaga_a.md) |
 
 Fas 1 på Bilaga A (`make eval`): TB, ritningsförteckning, format och uppdragsnummer läses deterministiskt.
 Planernas typ, ritningsnummer, skala och uppdragsnummer står bara i titelblock ritade som linjer och läses
