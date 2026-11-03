@@ -58,6 +58,8 @@ graph:
 assign:
   leader_end_tolerance_mm_paper: 1.0 # 6.4.3 h.1
   leader_confidence: 0.95
+  leader_capture_factor: 2.0        # h.1 – ledarände utan rör fångas av närmaste rör inom 2 × leader_end_tolerance
+  leader_capture_confidence: 0.7
   proximity_max_mm_paper: 6.0        # 6.4.3 h.2
   proximity_confidence: 0.8
   proximity_ambiguity_ratio: 1.5

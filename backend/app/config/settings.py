@@ -253,6 +253,7 @@ class VvsEngineConfig(_Strict):
     verified_scale_states: list[str]
     # motorns inställbara regel-id → nyckel i thresholds.yaml (ett värde, en källa: VS-Kalkyls trösklar)
     rules_from_thresholds: dict[str, str] = Field(default_factory=dict)
+    rules_from_thresholds_mm_to_pt: dict[str, list[str]] = Field(default_factory=dict)
 
 
 class DrawingsConfig(_Strict):

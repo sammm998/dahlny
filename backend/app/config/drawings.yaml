@@ -26,3 +26,7 @@ vvs_engine:
     semantics.proximity.CONFIDENCE: assign.proximity_confidence
     semantics.proximity.AMBIGUITY_RATIO: assign.proximity_ambiguity_ratio
     semantics.proximity.PARALLEL_DEG: assign.proximity_parallel_deg
+    semantics.attachment.NEAR_MISS_CONFIDENCE: assign.leader_capture_confidence
+  # Regler i punkter (pt) räknade ur trösklar i mm på papper: produkten av nycklarna, omräknad mm → pt
+  rules_from_thresholds_mm_to_pt:
+    semantics.attachment.NEAR_MISS: [assign.leader_end_tolerance_mm_paper, assign.leader_capture_factor]

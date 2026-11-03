@@ -154,6 +154,19 @@ def test_maps_quantities_to_pipe_run_drafts_with_evidence(tmp_path: Path) -> Non
     )
 
 
+def test_a_pipe_named_by_a_captured_leader_end_keeps_its_07(tmp_path: Path) -> None:
+    """SPEC 6.4.3 h.1: ett rör som bara nås genom en ledarände fångad strax före det har konfidens 0,7,
+    även om motorns nivå är högre."""
+    root = make_artifacts(tmp_path)
+    path = root / "sheets" / "0" / "physical-pipes.json"
+    data = json.loads(path.read_text(encoding="utf-8"))
+    data["physical_pipes"][0]["anchor_confidence"] = 0.7
+    path.write_text(json.dumps(data), encoding="utf-8")
+    [sheet] = VvsEngineSource().read_artifacts(root).sheets
+    run = sheet.pipe_runs[0]
+    assert run.confidence == 0.7 and run.source_refs[0].confidence == 0.7
+
+
 def test_symbols_risers_and_tags(tmp_path: Path) -> None:
     [sheet] = VvsEngineSource().read_artifacts(make_artifacts(tmp_path)).sheets
     risers = [s for s in sheet.symbols if s.kind == "riser"]
@@ -278,3 +291,6 @@ def test_engine_rules_follow_the_thresholds() -> None:
     assert pairs["semantics.proximity.LEADERLESS_MM"] == "6.0"
     assert pairs["semantics.proximity.CONFIDENCE"] == "0.8"
     assert pairs["semantics.proximity.AMBIGUITY_RATIO"] == "1.5"
+    # h.1: ledarände utan rör fångas inom 2 × 1 mm = 5,669 pt, konfidens 0,7
+    assert pairs["semantics.attachment.NEAR_MISS"] == "5.669"
+    assert pairs["semantics.attachment.NEAR_MISS_CONFIDENCE"] == "0.7"

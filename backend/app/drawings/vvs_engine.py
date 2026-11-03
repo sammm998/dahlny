@@ -15,6 +15,7 @@ okända konfidensnivåer blir flaggor som avstämningen (SPEC 6.5) tar hand om.
 from __future__ import annotations
 
 import json
+import math
 import os
 import re
 import shlex
@@ -36,6 +37,7 @@ from app.drawings.source import (
 )
 
 METHOD = "vvs_engine"
+PT_PER_MM = 72.0 / 25.4  # PDF-punkter per millimeter på papper (definition, inget gränsvärde)
 
 
 def _read(path: Path) -> Any:
@@ -101,6 +103,9 @@ class VvsEngineSource:
         out = []
         for rule_id, key in sorted(self.config.rules_from_thresholds.items()):
             out += ["--rule", f"{rule_id}={th.get(key)}"]
+        for rule_id, keys in sorted(self.config.rules_from_thresholds_mm_to_pt.items()):
+            mm = math.prod(float(th.get(k)) for k in keys)
+            out += ["--rule", f"{rule_id}={round(mm * PT_PER_MM, 3)}"]
         return out
 
     # ------------------------------------------------------------------ artefakter
@@ -191,6 +196,13 @@ class VvsEngineSource:
             evidence=list(scale.get("evidence") or []),
         )
 
+    def _member_confidence(self, members: list[dict[str, Any]]) -> tuple[float, list[str]]:
+        """Nivåns konfidens, begränsad av vad som namnger röret när det bara är en etikett utan egen ledare
+        (h.2, 0,8) eller en ledare fångad strax före röret (h.1, 0,7)."""
+        confidence, flags = self._confidence([m.get("confidence_tier") for m in members])
+        caps = [float(m["anchor_confidence"]) for m in members if m.get("anchor_confidence") is not None]
+        return (min([confidence, *caps]) if caps else confidence), flags
+
     def _confidence(self, tiers: list[str | None]) -> tuple[float, list[str]]:
         flags: list[str] = []
         values = []
@@ -219,7 +231,7 @@ class VvsEngineSource:
             dim = dim or engine_dim
         pipe_ids = [str(p) for p in row.get("pipe_ids") or []]
         members = [pipes[p] for p in pipe_ids if p in pipes]
-        confidence, conf_flags = self._confidence([m.get("confidence_tier") for m in members])
+        confidence, conf_flags = self._member_confidence(members)
         flags = [*parse_flags, *conf_flags]
         state = str(row.get("state") or "UNKNOWN")
         if state not in self.config.confirmed_states:
@@ -238,7 +250,7 @@ class VvsEngineSource:
                 bbox=_bbox_of(m.get("geometry") or []),
                 method=METHOD,
                 model=version,
-                confidence=self._confidence([m.get("confidence_tier")])[0],
+                confidence=self._member_confidence([m])[0],
                 evidence={
                     "physical_pipe_id": m.get("physical_pipe_id"),
                     "identity": m.get("identity"),
