@@ -10,6 +10,8 @@
   Har systemet flera material lämnas det tomt och raden flaggas `MATERIAL_UNRESOLVED`.
 - Meter är bekräftad horisontell längd (`length_m_horizontal`); tvetydig längd redovisas för sig och räknas
   aldrig in.
+- Sträckor bortom en entreprenadgräns (`ENTR. GRÄNS`) är en egen kategori, "utanför entreprenadgräns"
+  (`summarize_outside`): de ingår varken i mängden eller i det otilldelade.
 """
 
 from __future__ import annotations
@@ -21,10 +23,11 @@ from collections.abc import Iterable
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.config.settings import load_label_grammar, load_thresholds
-from app.drawings.source import PipeRunDraft
+from app.drawings.source import OutsideContractDraft, PipeRunDraft
 from app.tb.system_materials import SystemMaterialIndex
 
 AIR_SUFFIX = "L"  # 110L: luftning (label_grammar.yaml)
+OUTSIDE_CATEGORY = "utanför entreprenadgräns"
 
 
 class _Frozen(BaseModel):
@@ -135,3 +138,33 @@ def summarize(
             )
         )
     return rows
+
+
+class OutsideContractRow(_Frozen):
+    """Utanför entreprenadgräns, per beteckning och dimension: redovisas, ingår inte i mängden."""
+
+    category: str = OUTSIDE_CATEGORY
+    designation: str | None
+    system: str | None
+    dim: str | None
+    length_m: float
+    pages: list[int]
+    boundary_points: list[tuple[float, float]]
+
+
+def summarize_outside(items: Iterable[OutsideContractDraft]) -> list[OutsideContractRow]:
+    groups: dict[tuple[str | None, str | None], list[OutsideContractDraft]] = defaultdict(list)
+    for o in items:
+        groups[(o.designation, o.dim)].append(o)
+    rows = [
+        OutsideContractRow(
+            designation=designation,
+            system=group[0].system,
+            dim=dim,
+            length_m=round(sum(o.length_m or 0.0 for o in group), 3),
+            pages=sorted({o.page for o in group}),
+            boundary_points=[o.boundary_point for o in group],
+        )
+        for (designation, dim), group in groups.items()
+    ]
+    return sorted(rows, key=lambda r: (r.designation or "", r.dim or ""))

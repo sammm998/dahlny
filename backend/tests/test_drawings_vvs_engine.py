@@ -167,6 +167,29 @@ def test_a_pipe_named_by_a_captured_leader_end_keeps_its_07(tmp_path: Path) -> N
     assert run.confidence == 0.7 and run.source_refs[0].confidence == 0.7
 
 
+def test_beyond_the_contract_boundary_is_read_as_its_own_category(tmp_path: Path) -> None:
+    root = make_artifacts(tmp_path)
+    write(
+        root / "reading-coverage.json",
+        {"sheets": [{"page": 0, "drawn_m": 10.0, "confirmed_m": 8.9, "ambiguous_m": 0.0, "unowned_m": 0.1,
+                     "outside_contract_m": 1.0}]},
+    )  # fmt: skip
+    path = root / "sheets" / "0" / "quantities.json"
+    data = json.loads(path.read_text(encoding="utf-8"))
+    row = {"category": "utanför entreprenadgräns", "designation": "S03-P2-110L", "dn": 110}
+    row |= {"length_m": 0.371, "boundary_point": [1367.28, 679.24], "note": "ENTR. GRÄNS"}
+    row["geometry"] = [[[1375.7, 679.4], [1380.2, 679.4]]]
+    data["outside_contract"] = [row]
+    path.write_text(json.dumps(data), encoding="utf-8")
+    [sheet] = VvsEngineSource().read_artifacts(root).sheets
+    [o] = sheet.outside_contract
+    assert (o.designation, o.system, o.dim, o.length_m) == ("S03-P2-110L", "S03", "110L", 0.371)
+    assert o.page == 1 and o.boundary_point == (1367.28, 679.24)
+    assert all(r.designation != "S03-P2-110L" for r in sheet.pipe_runs)  # inte i mängden
+    assert sheet.coverage is not None and sheet.coverage.outside_contract_m == 1.0
+    assert sheet.coverage.unassigned_fraction == 0.1 / 9.0  # andelen räknas innanför gränsen
+
+
 def test_symbols_risers_and_tags(tmp_path: Path) -> None:
     [sheet] = VvsEngineSource().read_artifacts(make_artifacts(tmp_path)).sheets
     risers = [s for s in sheet.symbols if s.kind == "riser"]

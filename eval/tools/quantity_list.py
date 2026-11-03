@@ -18,7 +18,7 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "backend"))
 
 from app.config.settings import load_reference_tables  # noqa: E402
-from app.drawings.quantities import QuantityRow, summarize  # noqa: E402
+from app.drawings.quantities import OUTSIDE_CATEGORY, QuantityRow, summarize, summarize_outside  # noqa: E402
 from app.drawings.vvs_engine import VvsEngineSource  # noqa: E402
 from app.ingest.pdf_typed import open_pdf, page_text  # noqa: E402
 from app.tb.system_materials import SystemMaterialIndex, from_designations, from_tb_pages  # noqa: E402
@@ -77,9 +77,19 @@ def main() -> int:
         totals[row.system] = totals.get(row.system, 0.0) + row.length_m
     print("Summa per system: " + ", ".join(f"{k} {v:.2f}" for k, v in sorted(totals.items()))
           + f"; totalt {sum(totals.values()):.2f} m")  # fmt: skip
+    outside = summarize_outside(o for s in sheets for o in s.outside_contract)
+    if outside:
+        print(f"\n{OUTSIDE_CATEGORY.capitalize()} (egen kategori – ingår inte i mängden ovan):")
+        for o in outside:
+            points = "; ".join(f"blad {p}" for p in o.pages)
+            print(f"{o.designation or '–':<16} {'':<22} {o.length_m:8.2f}  {points}")
+        print(f"Summa {OUTSIDE_CATEGORY}: {sum(o.length_m for o in outside):.2f} m")
     if args.json:
-        args.json.write_text(json.dumps([r.model_dump() for r in rows], ensure_ascii=False, indent=1),
-                             encoding="utf-8")  # fmt: skip
+        payload = {
+            "rows": [r.model_dump() for r in rows],
+            "outside_contract": [o.model_dump() for o in outside],
+        }
+        args.json.write_text(json.dumps(payload, ensure_ascii=False, indent=1), encoding="utf-8")
     return 0
 
 

@@ -4,7 +4,9 @@
 
 KÖRNING är `vvs-takeoff analyze … --out KÖRNING`. Per blad (motorns 0-baserade sidindex):
 - `pipe-geometry-inventory.json`: varje rörbit med status (CONFIRMED / AMBIGUOUS / UNOWNED) och koordinater;
-- `unresolved-issues.json`: rörbeteckningar som inte fäste (ingen ledare, eller ledaren når inget rör).
+- `unresolved-issues.json`: rörbeteckningar som inte fäste (ingen ledare, eller ledaren når inget rör);
+- `quantities.json` `outside_contract`: sträckor bortom en entreprenadgräns (status OUTSIDE_CONTRACT).
+  De ritas lila med gränspunkten som ett kryss och räknas för sig – varken otilldelat eller bekräftat.
 Otilldelade bitar i samma lager som möts (`--join-pt`) blir en sträcka. Varje sträcka får en orsaksgrupp:
   A  fortsättning på ett namngivet rör som ingen etikett når (sträckan rör vid namngiven geometri);
   B  fristående, och en rörbeteckning i närheten (`--near-pt`) saknar ledare;
@@ -29,6 +31,9 @@ import pymupdf
 
 TOUCH_PT = 1.5  # ändpunkt så här nära namngiven geometri = sträckan hänger på röret
 RED, ORANGE, GREEN, BLUE = (0.85, 0.05, 0.05), (1.0, 0.55, 0.0), (0.1, 0.6, 0.2), (0.1, 0.3, 0.95)
+PURPLE = (0.35, 0.2, 0.75)
+OUTSIDE = "OUTSIDE_CONTRACT"
+OUTSIDE_LABEL = "utanför entreprenadgräns"
 GROUPS = {
     "A": "fortsättning på namngivet rör som ingen etikett når",
     "B": "fristående – närliggande rörbeteckning saknar ledare",
@@ -80,7 +85,9 @@ def sheet_map(
 ) -> dict[str, Any]:
     d = run / "sheets" / str(sheet)
     inv = (_load(d / "pipe-geometry-inventory.json") or {}).get("primitives", [])
-    mpp = ((_load(d / "quantities.json") or {}).get("scale") or {}).get("meters_per_pdf_point") or 0.0
+    quantities = _load(d / "quantities.json") or {}
+    mpp = (quantities.get("scale") or {}).get("meters_per_pdf_point") or 0.0
+    outside = quantities.get("outside_contract") or []
     issues = (_load(d / "unresolved-issues.json") or {}).get("issues", [])
     unplaced = [i for i in issues if i["kind"] in ("missing_leader", "missing_pipe_attachment")]
     named_ends = [e for p in inv if p["state"] in ("CONFIRMED", "AMBIGUOUS") for e in _ends(p)]
@@ -116,10 +123,18 @@ def sheet_map(
     page = doc[sheet]
     shape = page.new_shape()
     for p in inv:
-        colour = {"UNOWNED": RED, "AMBIGUOUS": ORANGE}.get(p["state"], GREEN)
-        width = 2.4 if p["state"] == "UNOWNED" else (1.8 if p["state"] == "AMBIGUOUS" else 1.0)
+        colour = {"UNOWNED": RED, "AMBIGUOUS": ORANGE, OUTSIDE: PURPLE}.get(p["state"], GREEN)
+        width = {"UNOWNED": 2.4, "AMBIGUOUS": 1.8, OUTSIDE: 2.4}.get(p["state"], 1.0)
         shape.draw_line((p["x0"], p["y0"]), (p["x1"], p["y1"]))
         shape.finish(color=colour, width=width)
+    for o in outside:  # sträckan bortom gränsen (också den kapade bitens yttre del) och gränspunkten
+        for (ax, ay), (bx, by) in o.get("geometry") or []:
+            shape.draw_line((ax, ay), (bx, by))
+            shape.finish(color=PURPLE, width=2.4)
+        x, y = o["boundary_point"]
+        shape.draw_line((x - 4, y - 4), (x + 4, y + 4))
+        shape.draw_line((x - 4, y + 4), (x + 4, y - 4))
+        shape.finish(color=PURPLE, width=1.4)
     for i in unplaced:
         x0, y0, x1, y1 = i["bbox"]
         shape.draw_rect(pymupdf.Rect(x0 - 2, y0 - 2, x1 + 2, y1 + 2))
@@ -137,7 +152,11 @@ def sheet_map(
     zoom = min(3.0, 2400 / max(clip.width, 1.0))
     page.get_pixmap(matrix=pymupdf.Matrix(zoom, zoom), clip=clip).save(out / f"blad_{sheet}.png")
     totals = {k: round(sum(r["length_m"] for r in runs if r["group"] == k), 2) for k in GROUPS}
+    beyond = [{"designation": o.get("designation"), "length_m": o.get("length_m"),
+               "boundary_point": o.get("boundary_point")} for o in outside]  # fmt: skip
     return {"sheet": sheet, "unowned_m": round(sum(r["length_m"] for r in runs), 2), "by_group_m": totals,
+            "outside_contract_m": round(sum(o["length_m"] or 0.0 for o in beyond), 2),
+            "outside_contract": beyond,
             "runs": runs, "unplaced_labels": [{k: i.get(k) for k in ("text", "kind", "reason", "bbox")}
                                               for i in unplaced]}  # fmt: skip
 
@@ -167,6 +186,9 @@ def main() -> int:
         print(f"## Blad {res['sheet']}: {res['unowned_m']} m otilldelat")
         for k, label in GROUPS.items():
             print(f"   {k} {res['by_group_m'][k]:6.2f} m  {label}")
+        print(f"   {res['outside_contract_m']:8.2f} m  {OUTSIDE_LABEL} (egen kategori, inte otilldelat)")
+        for o in res["outside_contract"]:
+            print(f"        {o['designation'] or '–'}: {o['length_m']} m, gräns vid {o['boundary_point']}")
         for r in res["runs"]:
             near = (
                 "; ".join(f"{n['text']} ({n['kind']}, {n['distance_pt']} pt)" for n in r["nearby_labels"])

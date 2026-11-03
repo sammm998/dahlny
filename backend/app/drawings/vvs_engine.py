@@ -28,6 +28,7 @@ from app.drawings.source import (
     DrawingSourceError,
     DrawingTakeoff,
     LegendEntryDraft,
+    OutsideContractDraft,
     PipeRunDraft,
     SheetCoverage,
     SheetScale,
@@ -176,6 +177,7 @@ class VvsEngineSource:
                 confirmed_m=_float(cov.get("confirmed_m")),
                 ambiguous_m=_float(cov.get("ambiguous_m")),
                 unowned_m=_float(cov.get("unowned_m")),
+                outside_contract_m=_float(cov.get("outside_contract_m")),
             )
             if cov
             else None,
@@ -183,6 +185,9 @@ class VvsEngineSource:
             symbols=symbols,
             legend=legend,
             designations_read=[str(d.get("raw_text") or d.get("text") or "") for d in designations],
+            outside_contract=[
+                self._outside(page, o, version) for o in quantities.get("outside_contract") or []
+            ],
         )
 
     def _scale(self, page: int, scale: dict[str, Any]) -> SheetScale:
@@ -194,6 +199,36 @@ class VvsEngineSource:
             meters_per_pt=_float(scale.get("meters_per_pdf_point") or scale.get("meters_per_pt")),
             reason=scale.get("reason"),
             evidence=list(scale.get("evidence") or []),
+        )
+
+    def _outside(self, page: int, row: dict[str, Any], version: str) -> OutsideContractDraft:
+        designation = row.get("designation")
+        system, _material, dim, _flags = _parse_designation(str(designation or ""))
+        if row.get("dn") is not None:
+            dim = dim or str(row["dn"])
+        x, y = row["boundary_point"][:2]
+        return OutsideContractDraft(
+            page=page,
+            designation=designation,
+            system=system,
+            dim=dim,
+            length_m=_float(row.get("length_m")),
+            boundary_point=(float(x), float(y)),
+            note=str(row.get("note") or ""),
+            source_refs=[
+                SourceRef(
+                    page=page,
+                    bbox=_bbox_of(row.get("geometry") or []),
+                    method=METHOD,
+                    model=version,
+                    evidence={
+                        "category": row.get("category"),
+                        "note_bbox": row.get("note_bbox"),
+                        "family": row.get("family"),
+                        "cut_outside_pt": row.get("cut_outside_pt"),
+                    },
+                )
+            ],
         )
 
     def _member_confidence(self, members: list[dict[str, Any]]) -> tuple[float, list[str]]:

@@ -78,3 +78,22 @@ def test_a_system_no_source_names_a_material_for_is_flagged() -> None:
     [row] = summarize([run("X9-15", 1.0, system="X9", material=None, dim="15")],
                       known_codes=KNOWN, system_materials=index())  # fmt: skip
     assert row.material is None and row.flags == ["MATERIAL_UNRESOLVED"]
+
+
+def test_outside_the_contract_boundary_is_its_own_category() -> None:
+    from app.drawings.quantities import OUTSIDE_CATEGORY, summarize_outside
+    from app.drawings.source import OutsideContractDraft
+
+    def out(designation: str | None, metres: float, page: int, x: float) -> OutsideContractDraft:
+        return OutsideContractDraft(
+            page=page, designation=designation, system=(designation or "").split("-")[0] or None, dim="110",
+            length_m=metres, boundary_point=(x, 1.0), note="ENTR. GRÄNS", source_refs=[],
+        )  # fmt: skip
+
+    rows = summarize_outside([out("S01-P2-110", 0.37, 3, 1.0), out("S01-P2-110", 0.2, 3, 2.0),
+                              out(None, 0.5, 3, 3.0)])  # fmt: skip
+    assert [r.designation for r in rows] == [None, "S01-P2-110"]
+    s01 = rows[1]
+    assert s01.category == OUTSIDE_CATEGORY and s01.length_m == 0.57 and len(s01.boundary_points) == 2
+    # mängden påverkas inte: summarize ser bara PipeRunDraft
+    assert summarize([], known_codes=KNOWN, system_materials=index()) == []

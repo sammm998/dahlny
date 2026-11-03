@@ -61,6 +61,19 @@ class PipeRunDraft(_Frozen):
     source_refs: list[SourceRef]
 
 
+class OutsideContractDraft(_Frozen):
+    """En sträcka bortom en entreprenadgräns (`ENTR. GRÄNS`): egen kategori, varken mängd eller otilldelat."""
+
+    page: int
+    designation: str | None  # röret som korsar gränsen, om det har ett namn
+    system: str | None
+    dim: str | None
+    length_m: float | None
+    boundary_point: tuple[float, float]
+    note: str
+    source_refs: list[SourceRef]
+
+
 class SymbolDraft(_Frozen):
     page: int
     kind: SymbolKind
@@ -86,12 +99,15 @@ class SheetCoverage(_Frozen):
     confirmed_m: float | None
     ambiguous_m: float | None
     unowned_m: float | None
+    outside_contract_m: float | None = None  # bortom entreprenadgräns – ingår varken i mängd eller otilldelat
 
     @property
     def unassigned_fraction(self) -> float | None:
-        if not self.drawn_m:
+        """Andel otilldelat av den ritade längden innanför entreprenadgränsen."""
+        inside = (self.drawn_m or 0.0) - (self.outside_contract_m or 0.0)
+        if inside <= 0:
             return None
-        return ((self.unowned_m or 0.0) + (self.ambiguous_m or 0.0)) / self.drawn_m
+        return ((self.unowned_m or 0.0) + (self.ambiguous_m or 0.0)) / inside
 
 
 class SheetTakeoff(_Frozen):
@@ -104,6 +120,7 @@ class SheetTakeoff(_Frozen):
     symbols: list[SymbolDraft]
     legend: list[LegendEntryDraft]
     designations_read: list[str]  # all text källan läste som beteckningar, för mätning mot facit
+    outside_contract: list[OutsideContractDraft] = Field(default_factory=list)
 
 
 class DrawingTakeoff(_Frozen):
