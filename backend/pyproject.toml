@@ -19,6 +19,8 @@ dependencies = [
     "httpx>=0.27",
     "pymupdf>=1.24,<2",  # samma spann som vvs_engine
     "openpyxl>=3.1",  # artikelregister-import, Prixel- och mängdlisteexport (Excel)
+    "ezdxf>=1.3",  # väg B (DXF), SPEC 6.4.2
+    "ifcopenshell>=0.8",  # väg A (IFC), SPEC 6.4.1
 ]
 
 [project.optional-dependencies]
@@ -67,6 +69,12 @@ exclude = ["app/db/migrations/versions/"]
 
 [[tool.mypy.overrides]]
 module = ["celery.*", "geoalchemy2.*"]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+# CAD-biblioteken: deras egna typer är ofullständiga för DXF-entiteter och IFC-instanser – behandlas som Any.
+module = ["ezdxf", "ezdxf.*", "ifcopenshell", "ifcopenshell.*"]
+follow_imports = "skip"
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]

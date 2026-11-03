@@ -18,7 +18,8 @@ Postgres efter omstart av containern: `pg_ctlcluster 16 main start`. `make check
 | 6b | klar | `demo/markerad.pdf`: summering först, alla rör färgade per system × dimension, otilldelat/tvetydigt/utanför i egna färger, ritat som sidinnehåll (Adobe/Bluebeam); `mangdlista.xlsx` (rör, utanför, isolering, rördelar) |
 | UI | ej påbörjad | |
 | 12 (demo) | klar | `make demo` kör Årjäng hela vägen → `demo/` (artikellista, avvikelser, mängdlista, markerad PDF, .eml, Prixel) |
-| 9–11 | ej påbörjade | |
+| 9 | klar (väg A/B som bibliotek; inte inkopplad i demo/UI) | Syntetisk DXF exakt (7,0 m och 1,5 m, mm-enhet; okänt lager räknas inte; utan $INSUNITS avvisas), syntetisk IFC exakt (IfcPipeSegment + system + Qto-längd + DN); DWG kräver dwg2dxf/ODA (felmeddelande) |
+| 10–11 | ej påbörjade | |
 
 ## Fas 2 – vad som finns
 
