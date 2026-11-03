@@ -19,7 +19,8 @@ Postgres efter omstart av containern: `pg_ctlcluster 16 main start`. `make check
 | UI | klar (v1) | React-sida utan byggsteg (`frontend/index.html`, React/htm i `frontend/vendor/`) på `/ui`: projekt, TB-lista, ritning, mängdlista, avvikelser, matchning, förfrågningar, export; klick till källsidan med markering; korrigeringar → `correction` + projektets logg. Testad i Chromium. Uppladdning i UI och SSO: stubbar |
 | 12 (demo) | klar | `make demo` kör Årjäng hela vägen → `demo/` (artikellista, avvikelser, mängdlista, markerad PDF, .eml, Prixel) |
 | 9 | klar (väg A/B som bibliotek; inte inkopplad i demo/UI) | Syntetisk DXF exakt (7,0 m och 1,5 m, mm-enhet; okänt lager räknas inte; utan $INSUNITS avvisas), syntetisk IFC exakt (IfcPipeSegment + system + Qto-längd + DN); DWG kräver dwg2dxf/ODA (felmeddelande) |
-| 10–11 | ej påbörjade | |
+| 10 | ej påbörjad | Kräver ett andra konsultprojekt med facit (ÖPPEN FRÅGA 7); korrigeringarna sparas redan (`correction`) |
+| 11 | delvis | Skanning 200 dpi och simulerat foto: etiketter 88/88 exakt, 0 tysta fel; rörmeter 0 m – rastervektorisering saknas (`docs/raster_bilaga_a.md`) |
 
 ## Fas 2 – vad som finns
 
@@ -70,7 +71,7 @@ Postgres efter omstart av containern: `pg_ctlcluster 16 main start`. `make check
 
 - Otilldelat ≤ 2 %: plan 1 4,0 m + 2,75 m tvetydigt (W40/W – väntar på konsulten), plan 0 7,5 m varav 5,0 m i
   V-53-FE-_- (etiketter S02-P2 2,3 pt från linjen fäster inte – utred anknytningen för generaliserade familjer).
-- Fas 10–11, KOMIGANG.md, draft-PR.
+- Fas 10 (stilprofiler) och väg D/E:s rastervektorisering; se `docs/raster_bilaga_a.md`.
 
 Nya ritningar (Higab): testade och delvis rättade, se `docs/nya_ritningar_higab.md` (otilldelat 76 %/62 %/97 %;
 kvar: täta knippen, för stor rörgeometri, demonteringsblad i mängdningen, rasterbladet väg D).
