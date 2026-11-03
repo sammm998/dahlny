@@ -80,9 +80,10 @@ class RuleDraft:
 class TBResult:
     items: list[ItemDraft]
     rules: list[RuleDraft]
-    deviations: list[DeviationDraft]
+    deviations: list[DeviationDraft]  # T4 (TB_MENTIONED_NOT_ITEMIZED) och T3 (CONFLICTING_REQUIREMENTS)
     segments: list[Segment]
     flags: list[str] = field(default_factory=list)
+    lines: list[TBLine] = field(default_factory=list)
 
     def all_items(self) -> list[ItemDraft]:
         return [x for it in self.items for x in (it, *it.children)]
@@ -230,9 +231,12 @@ def structure(
     document: str,
     project_id: uuid.UUID | None,
     on_error: Callable[[str], None],
-) -> list[ItemDraft]:
-    """T3 per sektion (alla segment i sektionen i ett anrop). Ett misslyckat anrop flaggas, aldrig gissat."""
+) -> tuple[list[ItemDraft], list[DeviationDraft]]:
+    """T3 per sektion (alla segment i sektionen i ett anrop). Ett misslyckat anrop flaggas, aldrig gissat.
+    Returnerar posterna och sektionernas motstridiga krav (CONFLICTING_REQUIREMENTS, båda citaten
+    validerade)."""
     model = ai.config.tasks["T3"].model
+    conflicts: list[DeviationDraft] = []
 
     def run(batch: list[Segment]) -> list[ItemDraft]:
         sec = batch[0].section
@@ -254,11 +258,34 @@ def structure(
             item = _item(it, seg, document, model)
             if item is not None:
                 out.append(item)
+        lines = [ln for ln in batch[0].section.lines]
+        for c in resp.conflicts:
+            if not (found_in(c.quote_a, text) and found_in(c.quote_b, text)) or squash(c.quote_a) == squash(
+                c.quote_b
+            ):
+                on_error(f"T3 {sec.code}: konflikt utan ordagranna citat avvisad ({c.subject})")
+                continue
+            hits = [
+                ln
+                for ln in lines
+                if len(ln.all_text) > 10
+                and (found_in(ln.all_text, c.quote_a) or found_in(ln.all_text, c.quote_b))
+            ]
+            refs = [_ref([h], document, f"T3:{model}", quote=h.all_text) for h in hits[:2]]
+            conflicts.append(
+                DeviationDraft(
+                    "CONFLICTING_REQUIREMENTS",
+                    f'{sec.code} {c.subject}: "{c.quote_a}" mot "{c.quote_b}" – {c.why}',
+                    refs,
+                    question=f'TB {sec.code} anger både "{c.quote_a}" och "{c.quote_b}" för {c.subject}. '
+                    "Vilket gäller?",
+                )
+            )
         return out
 
     with ThreadPoolExecutor(max_workers=ai.config.defaults.max_concurrency) as pool:
         results = list(pool.map(run, _batches(segs)))
-    return merge_duplicates([x for r in results for x in r])
+    return merge_duplicates([x for r in results for x in r]), conflicts
 
 
 def merge_duplicates(items: list[ItemDraft]) -> list[ItemDraft]:
@@ -353,10 +380,10 @@ def extract_tb(
     segs = segments(sections(lines))
     flags: list[str] = []
     if ai is None:
-        return TBResult([], [], [], segs, ["ai_disabled"])
-    items = structure(segs, ai, document, project_id, flags.append)
+        return TBResult([], [], [], segs, ["ai_disabled"], lines)
+    items, conflicts = structure(segs, ai, document, project_id, flags.append)
     rules = general_rules(lines, ai, document, project_id, flags.append)
     deviations = completeness(
         lines, [x for it in items for x in (it, *it.children)], ai, document, project_id, flags.append
     )
-    return TBResult(items, rules, deviations, segs, flags)
+    return TBResult(items, rules, deviations + conflicts, segs, flags, lines)

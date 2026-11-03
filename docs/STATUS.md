@@ -11,7 +11,7 @@ Postgres efter omstart av containern: `pg_ctlcluster 16 main start`. `make check
 | 0 | klar | `make check` grönt, AI loggas i `ai_run` |
 | 1 | klar | 23/23 kontroller (sidtyp, ritningsnr, skala, uppdragsnr, förteckning, TITLEBLOCK_MISMATCH) |
 | 2 | klar | 29/29 facitrader (28 + rör), 0 påhittade, RSK 28/28, art.nr 7/7, antal 28/28, golvränna hittad, generella krav 9/9; 0,33 USD |
-| 3 | ej påbörjad | |
+| 3 | klar (granskningsvyn byggs med UI:t) | A.3: 10/10 av avvikelserna fram till fas 3 (nr 1–4, 7–10, 12); 17 regler registrerade, 12 enhetstester |
 | 4 | ej påbörjad | |
 | 5 | ej påbörjad | |
 | 6–8 | delvis (motorn integrerad, se `docs/t5_bilaga_a.md`) | |
@@ -28,6 +28,16 @@ Postgres efter omstart av containern: `pg_ctlcluster 16 main start`. `make check
   SpecItem/ProjectRule/Deviation (ny kolumn `deviation.question`, migrering 0003).
 - `app/evaluation/phase2.py` + `make eval` (fas 2-sektion och 11.2-måtten).
 
+## Fas 3 – vad som finns
+
+- `app/rules/engine.py`: `@rule(id)`-register för alla 17 regler i SPEC 6.5, `RuleContext`, `run_rules`.
+  Ordlistor och mönster i `config/rules.yaml`. Deterministiska: TB_SELF_CONTRADICTION (samma specifikationsord, olika
+  mått; ofullständig mening = info), OPTION_REQUIRED, UNDEFINED_VALUE, DECIDE_WITH_CLIENT (bara produktval),
+  MATERIAL_CODE_MISMATCH, TB_QTY_VS_DRAWING, DRAWING_ITEM_NOT_IN_TB, ritningskontrollerna. AI med validerade citat:
+  TB_MENTIONED_NOT_ITEMIZED (T4), CONFLICTING_REQUIREMENTS (T3 v3, fältet `conflicts`).
+- `app/evaluation/phase3.py` + fas 3-sektion i `make eval`.
+
 ## Kvar / nästa steg
 
-Fas 3: regelmotorn (SPEC 6.5) och A.3-avvikelserna.
+Fas 4: artikelregister, matchning, Prixel-export. Användaren skickade fyra nya ritningar (V50-01-2711, -2713,
+-2811D, -4212-OMB; uppladdade, checkas aldrig in) att testa – körs efter fas 3.

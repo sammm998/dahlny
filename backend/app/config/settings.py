@@ -260,6 +260,15 @@ class DrawingsConfig(_Strict):
     vvs_engine: VvsEngineConfig
 
 
+class RulesConfig(_Strict):
+    option_phrases: list[str]
+    placeholder_patterns: list[str]
+    decide_phrases: list[str]
+    decide_selection_words: list[str]
+    spec_labels: list[str]
+    spec_label_reach_chars: int
+
+
 # --------------------------------------------------------------------------- loaders
 
 
@@ -297,3 +306,8 @@ def load_drawings_config() -> DrawingsConfig:
 @lru_cache
 def load_thresholds() -> Thresholds:
     return Thresholds.model_validate(_load_yaml("thresholds.yaml"))
+
+
+@lru_cache
+def load_rules_config() -> RulesConfig:
+    return RulesConfig.model_validate(_load_yaml("rules.yaml"))

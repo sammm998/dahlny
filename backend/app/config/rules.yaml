@@ -1,0 +1,30 @@
+# Regelmotorns ordlistor och mönster (SPEC 6.5). Inga magiska strängar i koden: ändra här.
+# Alla mönster är reguljära uttryck utan hänsyn till skiftläge, prövade mening för mening i TB:ns text.
+
+# OPTION_REQUIRED – "ska ingå i anbudet, utredningen sker i senare skede"
+option_phrases:
+  - 'ska ingå i anbudet'
+  - 'utredning(en)? sker i senare skede'
+  - 'utreds i senare skede'
+  - 'som option'
+  - 'optionspris'
+
+# UNDEFINED_VALUE – platshållare i stället för värden
+placeholder_patterns:
+  - '\bDN\s*X{1,3}\b'
+  - '\b[XØ]\s*X{2,}\b'
+  - '\bX{2,}\s*(mm|st|m)\b'
+  - '\?\?+'
+
+# DECIDE_WITH_CLIENT – ett val som ska göras med beställaren/kommunen. Gäller bara meningar där ett ord ur
+# selection_words står före samrådsfrasen (val av produkt eller typ), inte allmänt samråd om utförande.
+decide_phrases:
+  - 'i samråd med'
+  - 'efter beställarens önskemål'
+  - 'enligt beställarens val'
+decide_selection_words: [typ, val, fabrikat, utförande, modell, monteringshöjd, färg]
+
+# TB_SELF_CONTRADICTION – specifikationsord före ett mått eller en egenskap. Två olika mått efter samma ord i en
+# post är en motsägelse; två ord direkt efter varandra utan värde är en ofullständig mening (info).
+spec_labels: [Storlek, Dimension, Mått, Golvtyp, Golvmaterial, Utloppsdimension, Material, Stålkvalitet, Fabrikat]
+spec_label_reach_chars: 20   # så långt efter ordet får måttet börja

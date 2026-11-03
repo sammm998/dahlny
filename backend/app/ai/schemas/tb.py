@@ -34,8 +34,18 @@ class TBItem(BaseModel):
     children: list[TBChild] = Field(description="Barnposter ur 'Härtill:'-listor, se reglerna")
 
 
+class Conflict(BaseModel):
+    subject: str = Field(description="Vad kraven gäller, t.ex. 'konsoler till TS101'")
+    quote_a: str = Field(description="Första kravet ordagrant")
+    quote_b: str = Field(description="Andra kravet ordagrant, som utesluter det första")
+    why: str = Field(description="Varför båda inte kan uppfyllas, en mening")
+
+
 class T3Response(BaseModel):
     items: list[TBItem]
+    conflicts: list[Conflict] = Field(
+        default_factory=list, description="Krav i sektionen som utesluter varandra (SPEC 6.5)"
+    )
 
 
 class TBRule(BaseModel):

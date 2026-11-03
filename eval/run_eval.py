@@ -112,7 +112,9 @@ def make_ai(use_ai: bool) -> tuple[Any, str]:
     return ai, "på (anrop loggas i ai_run; saknad nyckel syns som not_configured)"
 
 
-def phase2_section(project_dir: Path, facit: ProjectFacit, ai: Any, results: dict[str, str]) -> list[str]:
+def phase2_section(
+    project_dir: Path, facit: ProjectFacit, ai: Any, results: dict[str, str], state: dict[str, Any]
+) -> list[str]:
     """TB-extraktion (fas 2) mot spec_items.json och project_rules.json."""
     from app.evaluation.phase2 import report_lines, score_phase2
     from app.tb.extract import extract_tb
@@ -123,6 +125,8 @@ def phase2_section(project_dir: Path, facit: ProjectFacit, ai: Any, results: dic
     if ai is None:
         return ["### Fas 2 – TB-extraktion", "", "ej mätt – kräver AI (T3/T4)", ""]
     result = extract_tb((project_dir / "input" / tb.filename).read_bytes(), tb.filename, ai)
+    state["tb"] = result
+    state["tb_document"] = tb.filename
     score = score_phase2(result, project_dir / "expected")
     rsk_ok, rsk_n = score.share("rsk_ok")
     art_ok, art_n = score.share("art_ok")
@@ -136,13 +140,30 @@ def phase2_section(project_dir: Path, facit: ProjectFacit, ai: Any, results: dic
     return [*report_lines(score), ""]
 
 
-def phase1_section(project_dir: Path, facit: ProjectFacit, ai: Any, ai_note: str) -> list[str]:
+def phase3_section(project_dir: Path, state: dict[str, Any]) -> list[str]:
+    """Regelmotorn (fas 3) på fas 1:s korskontroller och TB-extraktionen, mot deviations.json."""
+    from app.evaluation.phase3 import report_lines, score_deviations
+    from app.pipeline.phase1 import cross_check
+    from app.rules.engine import RuleContext, run_rules
+
+    if "tb" not in state or "phase1" not in state:
+        return []
+    ctx = RuleContext(tb=state["tb"], document=state["tb_document"], phase1=cross_check(state["phase1"]))
+    devs = run_rules(ctx)
+    state["deviations"] = devs
+    return [*report_lines(score_deviations(devs, project_dir / "expected", 3), devs), ""]
+
+
+def phase1_section(
+    project_dir: Path, facit: ProjectFacit, ai: Any, ai_note: str, state: dict[str, Any]
+) -> list[str]:
     """Kör fas 1 på projektets indata och jämför med pages.json (SPEC 13, fas 1 DoD)."""
     from app.evaluation.phase1 import score_phase1
     from app.pipeline.phase1 import analyze_files, load_inputs
 
     paths = [project_dir / "input" / d.filename for d in facit.pages.documents]
     result = analyze_files(load_inputs(paths), ai)
+    state["phase1"] = result
     score = score_phase1(result, facit.pages)
     lines = [
         f"### Fas 1 – intag, sidklassning, titelblock ({score.passed}/{score.total})",
@@ -186,8 +207,10 @@ def evaluate_project(project_dir: Path, require_inputs: bool, use_ai: bool = Tru
     results: dict[str, str] = {}
     if input_rows and all(status == "ok" for _, status in input_rows):
         ai, ai_note = make_ai(use_ai)
-        lines += phase1_section(project_dir, facit, ai, ai_note)
-        lines += phase2_section(project_dir, facit, ai, results)
+        state: dict[str, Any] = {}
+        lines += phase1_section(project_dir, facit, ai, ai_note, state)
+        lines += phase2_section(project_dir, facit, ai, results, state)
+        lines += phase3_section(project_dir, state)
     else:
         lines += ["### Fas 1", "", "ej mätt – indatafilerna finns inte lokalt (se eval/README.md)", ""]
 
