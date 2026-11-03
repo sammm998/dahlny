@@ -255,6 +255,8 @@ def match_item(
     if article is not None:
         missing = [a for a in required_accessories(item) if not confirmed(article, a)]
         if missing:
-            acc = AccessoryCheck(item.key, article.dahl_art_no, missing, item.refs)
+            # frågan går till leverantören: leverantörens art.nr, inte grossistens interna
+            label = f"{article.supplier or ''} {article.supplier_art_no or article.dahl_art_no}".strip()
+            acc = AccessoryCheck(item.key, label, missing, item.refs)
             outcome = "request"
     return MatchResult(item, article, method, score, outcome, reason, cands, acc)

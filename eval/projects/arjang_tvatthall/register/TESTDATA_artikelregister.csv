@@ -9,7 +9,7 @@ TEST-0006;7606400;IFÖ;23200;Tvättställ Cera 500x400;lager;st;TEST-IF;
 TEST-0007;;FMM;8060-0000;Ettgreppsblandare 9000E EcoSafe tvättställ;lager;st;TEST-FM;
 TEST-0008;8560167;FMM;S600017;Silventil tvättställ;lager;st;TEST-FM;
 TEST-0009;;Broen;BALLOFIX-15K;Avstängningsventil Ballofix förkromad med vred;lager;st;TEST-BR;
-TEST-0010;;Furo;40512H;Tvättränna 1200x451 rostfri EN 1.4301 utlopp höger;virtuellt;st;TEST-FU;
+TEST-0010;;Furhoffs;40512H;Tvättränna FURO 40512H 1200x451 rostfri EN 1.4301 utlopp höger;beställningsvara;st;TEST-DF;
 TEST-0011;;FMM;8118-0010;Tvättränneblandare 9000E;lager;st;TEST-FM;
 TEST-0012;7811054;IFÖ;6261-0931-1010;WC Spira vit med sits;lager;st;TEST-IF;
 TEST-0013;7811050;IFÖ;6260;WC Spira golvmodell utan sits;lager;st;TEST-IF;

@@ -13,7 +13,7 @@ Postgres efter omstart av containern: `pg_ctlcluster 16 main start`. `make check
 | 2 | klar | 29/29 facitrader (28 + rör), 0 påhittade, RSK 28/28, art.nr 7/7, antal 28/28, golvränna hittad, generella krav 9/9; 0,33 USD |
 | 3 | klar (granskningsvyn byggs med UI:t) | A.3: 10/10 av avvikelserna fram till fas 3 (nr 1–4, 7–10, 12); 17 regler registrerade, 12 enhetstester |
 | 4 | klar | TESTDATA-register: 26/28 rätt utfall, 2 osäkra, 0 fel (92,9 %; 11.2 kräver ≥ 95 %, resten osäker); RSK-rader 6/6 (DoD); A3-11 hittas; Prixel Excel + urklipp |
-| 5 | ej påbörjad | |
+| 5 | klar | Furhoffs-utkastet har B201B, B202B, TS501, 5 frågor och radonoptionen (DoD ok); T9-text kontrolleras mot underlaget; .eml + Excelbilaga; Graph/Gmail-stubbar; T10 |
 | 6–8 | delvis (motorn integrerad, se `docs/t5_bilaga_a.md`) | |
 | 6b | ej påbörjad | |
 | UI | ej påbörjad | |
@@ -46,9 +46,17 @@ Postgres efter omstart av containern: `pg_ctlcluster 16 main start`. `make check
 - `app/export/prixel.py`: Excel, urklipp (tabbar), API-stub (ÖPPEN FRÅGA 1). Kolumner i `config/prixel.yaml`.
 - `eval/projects/arjang_tvatthall/register/TESTDATA_artikelregister.csv` (påhittat) + `expected/matching.json`.
 
+## Fas 5 – vad som finns
+
+- `app/requests/supplier.py`: gruppering per leverantör, frågor ur avvikelserna, optioner separat, mall + T9 med
+  deterministisk kontroll (varje beteckning, inga tal utan källa, krav ordagrant), `.eml` (X-Unsent, text + html,
+  Excelbilaga). `app/requests/mailbox.py`: Graph- och Gmail-adaptrar, bara utkast, stubbar (ÖPPEN FRÅGA 3).
+  `app/requests/replies.py`: T10, pris måste stå ordagrant i svaret. `app/tb/header.py`: projektnamn och beställare.
+- `make eval` skriver utkasten till `eval/reports/<projekt>/forfragningar/`.
+
 ## Kvar / nästa steg
 
-Fas 5: leverantörsförfrågningar.
+Fas 6–8: ritningsdelen (beslut S01 DN75, lagret V-53-FE-_-, pilspetsar, symboler A.5, legender, isolering).
 
 Nya ritningar (Higab): testade och delvis rättade, se `docs/nya_ritningar_higab.md` (otilldelat 76 %/62 %/97 %;
 kvar: täta knippen, för stor rörgeometri, demonteringsblad i mängdningen, rasterbladet väg D).

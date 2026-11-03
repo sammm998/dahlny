@@ -192,6 +192,7 @@ def phase4_section(project_dir: Path, ai: Any, results: dict[str, str], state: d
         accessories=[m.accessory for m in matches if m.accessory],
     )
     devs = run_rules(ctx)
+    state["matches"], state["deviations"] = matches, devs
     pos = positions(items, matches)
     out = REPORTS_DIR / project_dir.name
     out.mkdir(parents=True, exist_ok=True)
@@ -206,6 +207,41 @@ def phase4_section(project_dir: Path, ai: Any, results: dict[str, str], state: d
         f"Prixel-export: `eval/reports/{project_dir.name}/prixel.xlsx` och `prixel_urklipp.txt`.",
         "",
     ]
+
+
+def phase5_section(project_dir: Path, ai: Any, state: dict[str, Any]) -> list[str]:
+    """Leverantörsförfrågningar (fas 5): utkast per leverantör som .eml. DoD: Furhoffs-utkastet för Bilaga A
+    innehåller B201B, B202B, TS501 och frågorna."""
+    from app.requests.supplier import build_requests, compose, to_eml
+    from app.tb.header import project_info
+
+    if "matches" not in state:
+        return []
+    tb_bytes = (project_dir / "input" / state["tb_document"]).read_bytes()
+    project_no = next((d.project_no for d in state["phase1"].documents if d.project_no), None)
+    drafts = build_requests(state["tb"].all_items(), state["matches"], state["deviations"],
+                            project_info(tb_bytes, project_no))  # fmt: skip
+    out = REPORTS_DIR / project_dir.name / "forfragningar"
+    out.mkdir(parents=True, exist_ok=True)
+    lines = ["### Fas 5 – leverantörsförfrågningar (utkast, skickas aldrig)", "",
+             "| Leverantör | Rader | Frågor | Optioner | Text | Fil |",
+             "| --- | --- | --- | --- | --- | --- |"]  # fmt: skip
+    for d in drafts:
+        compose(d, ai)
+        name = f"{d.supplier}.eml".replace("/", "_")
+        (out / name).write_bytes(to_eml(d))
+        how = "mall (" + "; ".join(d.flags) + ")" if d.flags else "T9, kontrollerad"
+        lines.append(f"| {d.supplier} | {', '.join(ln.designation for ln in d.lines)} | {len(d.questions)} | "
+                     f"{len(d.options)} | {how} | `forfragningar/{name}` |")  # fmt: skip
+    furhoffs = next((d for d in drafts if d.supplier.lower() == "furhoffs"), None)
+    if furhoffs is not None:
+        need = ["B201B", "B202B", "TS501"]
+        ok = all(n in furhoffs.body_md for n in need) and len(furhoffs.questions) >= 2
+        lines += [
+            "",
+            f"DoD fas 5 (Furhoffs-utkastet har {', '.join(need)} och frågorna): {'ok' if ok else '**NEJ**'}",
+        ]
+    return [*lines, ""]
 
 
 def phase1_section(
@@ -266,6 +302,7 @@ def evaluate_project(project_dir: Path, require_inputs: bool, use_ai: bool = Tru
         lines += phase2_section(project_dir, facit, ai, results, state)
         lines += phase3_section(project_dir, state)
         lines += phase4_section(project_dir, ai, results, state)
+        lines += phase5_section(project_dir, ai, state)
     else:
         lines += ["### Fas 1", "", "ej mätt – indatafilerna finns inte lokalt (se eval/README.md)", ""]
 
