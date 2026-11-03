@@ -460,6 +460,7 @@ Regler är Python-funktioner registrerade med id, allvarlighetsgrad och testfall
 | `DRAWING_LIST_MISMATCH` | Ritning i förteckning saknas/finns utöver | critical |
 | `TITLEBLOCK_MISMATCH` | Uppdragsnr/datum skiljer mellan TB och ritning | info |
 | `DECIDE_WITH_CLIENT` | "i samråd med beställaren/kommunen" | info |
+| `MATERIAL_UNRESOLVED` | Mängdrad utan material, och systemet har flera material i projektet (TB + ritningens etiketter) – fylls inte i. Har systemet exakt ett material fylls det i med källa och konfidens 0,85 (`MATERIAL_FROM_SYSTEM`, beslut 2026-11-03) | warning |
 
 Varje avvikelse har länkar till källorna och ett föreslaget formulerat frågetext till konsult/beställare.
 

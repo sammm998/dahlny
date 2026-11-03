@@ -24,6 +24,7 @@ SEVERITY: dict[str, Severity] = {
     "DRAWING_LIST_MISMATCH": "critical",
     "TITLEBLOCK_MISMATCH": "info",
     "DECIDE_WITH_CLIENT": "info",
+    "MATERIAL_UNRESOLVED": "warning",
 }
 
 

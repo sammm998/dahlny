@@ -77,3 +77,6 @@ matching:
   request_below_score: 0.6
   rerank_escalate_min: 0.6           # 7.1 T6 – eskalera vid 0.6–0.95
   rerank_escalate_max: 0.95
+
+quantities:
+  material_from_system_confidence: 0.85  # beslut 2026-11-03 – systemets enda material i projektet (TB + etiketter)
