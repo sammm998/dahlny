@@ -33,3 +33,12 @@ def page_textbox(page: pymupdf.Page, clip: pymupdf.Rect) -> str:
 
 def open_pdf(data: bytes) -> pymupdf.Document:
     return pymupdf.open(stream=data, filetype="pdf")  # type: ignore[no-untyped-call]
+
+
+def new_pdf() -> pymupdf.Document:
+    return pymupdf.open()  # type: ignore[no-untyped-call]
+
+
+def pdf_bytes(doc: pymupdf.Document) -> bytes:
+    data: bytes = doc.tobytes()  # type: ignore[no-untyped-call]
+    return data

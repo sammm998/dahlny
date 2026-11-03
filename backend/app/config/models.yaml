@@ -69,6 +69,11 @@ tasks:
     escalation: [claude-opus-5-5]
     effort: medium
     description: TB-strukturering
+  T3G:  # Generella krav (ProjectRule) ur hela TB:n, SPEC 6.2 steg 7
+    model: claude-sonnet-5-5
+    escalation: [claude-opus-5-5]
+    effort: medium
+    description: Generella krav ur TB (ProjectRule), varje krav med ordagrant citat
   T4:
     model: claude-opus-5-5
     escalation: []

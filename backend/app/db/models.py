@@ -220,6 +220,9 @@ class Deviation(TimestampedUUID, Base):
         enum_column("deviation_status", "open", "resolved", "ignored"), server_default="open"
     )
     note: Mapped[str | None] = mapped_column(sa.Text)
+    question: Mapped[str | None] = mapped_column(
+        sa.Text
+    )  # föreslagen fråga till konsult/beställare (SPEC 6.5)
 
 
 class Article(TimestampedUUID, Base):

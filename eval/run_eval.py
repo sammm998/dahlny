@@ -16,6 +16,7 @@ import sys
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Any
 
 from pydantic import ValidationError
 
@@ -92,28 +93,54 @@ def facit_summary(facit: ProjectFacit) -> list[tuple[str, str]]:
     ]
 
 
-def phase1_section(project_dir: Path, facit: ProjectFacit, use_ai: bool) -> list[str]:
+def make_ai(use_ai: bool) -> tuple[Any, str]:
+    """AIClient mot ai_run, eller None med skälet (--no-ai, databasen nås inte)."""
+    if not use_ai:
+        return None, "av (--no-ai)"
+    from sqlalchemy.exc import OperationalError
+
+    from app.ai.client import AIClient
+    from app.config.settings import load_models_config
+    from app.db.session import get_engine, make_session_factory
+
+    try:
+        with get_engine().connect():
+            pass
+    except OperationalError:
+        return None, "av – databasen för ai_run nås inte (DATABASE_URL)"
+    ai = AIClient(make_session_factory(), budget_usd=load_models_config().cost_cap_usd_per_project)
+    return ai, "på (anrop loggas i ai_run; saknad nyckel syns som not_configured)"
+
+
+def phase2_section(project_dir: Path, facit: ProjectFacit, ai: Any, results: dict[str, str]) -> list[str]:
+    """TB-extraktion (fas 2) mot spec_items.json och project_rules.json."""
+    from app.evaluation.phase2 import report_lines, score_phase2
+    from app.tb.extract import extract_tb
+
+    tb = next((d for d in facit.pages.documents if d.kind == "tb"), None)
+    if tb is None:
+        return []
+    if ai is None:
+        return ["### Fas 2 – TB-extraktion", "", "ej mätt – kräver AI (T3/T4)", ""]
+    result = extract_tb((project_dir / "input" / tb.filename).read_bytes(), tb.filename, ai)
+    score = score_phase2(result, project_dir / "expected")
+    rsk_ok, rsk_n = score.share("rsk_ok")
+    art_ok, art_n = score.share("art_ok")
+    qty_ok, qty_n = score.share("qty_ok")
+    results["TB: recall på sakvaror"] = f"{100 * score.recall:.1f} %"
+    results["TB: precision (påhittade rader)"] = (
+        f"{100 * score.precision:.1f} % ({len(score.fabricated)} påhittade)"
+    )
+    results["RSK/art.nr exakt korrekt"] = f"RSK {rsk_ok}/{rsk_n}, art.nr {art_ok}/{art_n}"
+    results["Antal korrekt"] = f"{qty_ok}/{qty_n}"
+    return [*report_lines(score), ""]
+
+
+def phase1_section(project_dir: Path, facit: ProjectFacit, ai: Any, ai_note: str) -> list[str]:
     """Kör fas 1 på projektets indata och jämför med pages.json (SPEC 13, fas 1 DoD)."""
     from app.evaluation.phase1 import score_phase1
     from app.pipeline.phase1 import analyze_files, load_inputs
 
-    ai = None
-    ai_note = "av (--no-ai)"
-    if use_ai:
-        from sqlalchemy.exc import OperationalError
-
-        from app.ai.client import AIClient
-        from app.db.session import get_engine, make_session_factory
-
-        try:
-            with get_engine().connect():
-                pass
-            from app.config.settings import load_models_config
-
-            ai = AIClient(make_session_factory(), budget_usd=load_models_config().cost_cap_usd_per_project)
-            ai_note = "på (anrop loggas i ai_run; saknad nyckel syns som not_configured)"
-        except OperationalError:
-            ai_note = "av – databasen för ai_run nås inte (DATABASE_URL)"
     paths = [project_dir / "input" / d.filename for d in facit.pages.documents]
     result = analyze_files(load_inputs(paths), ai)
     score = score_phase1(result, facit.pages)
@@ -156,8 +183,11 @@ def evaluate_project(project_dir: Path, require_inputs: bool, use_ai: bool = Tru
             ok = False
     lines.append("")
 
+    results: dict[str, str] = {}
     if input_rows and all(status == "ok" for _, status in input_rows):
-        lines += phase1_section(project_dir, facit, use_ai)
+        ai, ai_note = make_ai(use_ai)
+        lines += phase1_section(project_dir, facit, ai, ai_note)
+        lines += phase2_section(project_dir, facit, ai, results)
     else:
         lines += ["### Fas 1", "", "ej mätt – indatafilerna finns inte lokalt (se eval/README.md)", ""]
 
@@ -167,7 +197,9 @@ def evaluate_project(project_dir: Path, require_inputs: bool, use_ai: bool = Tru
         "| Mått | Gräns | Resultat |",
         "| --- | --- | --- |",
     ]
-    lines += [f"| {m.name} | {m.limit} | ej mätt (fas {m.phase}) |" for m in METRICS]
+    lines += [
+        f"| {m.name} | {m.limit} | {results.get(m.name, f'ej mätt (fas {m.phase})')} |" for m in METRICS
+    ]
     lines.append("")
     return "\n".join(lines), ok
 
