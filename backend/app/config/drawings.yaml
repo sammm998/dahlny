@@ -9,8 +9,12 @@ vvs_engine:
   # Motorns `confidence_tier` per rör → VS-Kalkyls konfidens 0–1. Ska kalibreras mot facit (fas 7).
   # Okänd nivå → 0.5 och flagga, aldrig ett påhittat högt värde.
   confidence_tiers:
-    verified: 0.95
+    # motorns nivåer (pipes/confidence.py): sure = etikettens egen ledare (h.1, 0,95); inferred = härlett, t.ex.
+    # etikett utan ledare (h.2, 0,8); review = granskas, t.ex. gren med ärvd, osäker dimension (h.3, 0,6)
+    sure: 0.95
     inferred: 0.8
+    review: 0.6
+    verified: 0.95
     weak: 0.6
   unknown_tier_confidence: 0.5
   # Motorns evidence_state → hur raden behandlas
