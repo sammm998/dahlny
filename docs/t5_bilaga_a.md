@@ -328,3 +328,93 @@ Också på plan 0: tvetydigt 3,92 m S01 (orange, kompressorrummet och WC) – se
    regeln om systemlager ändrar vilka lager som räknas som rör på alla ritningar.
 2. Konsultens svar om `W40`, `W` och `F` (A3-13).
 3. Linjen mellan `L9` och `ANSL. TRYCKLUFT` på plan 1: vems ledare den är går inte att avgöra ur geometrin.
+
+## 6. Omgång 4 (2026-11-03): sju rättningar i ordning
+
+Varje rättning är en generell regel med syntetiska tester (inga Årjängsspecifika villkor). Hela motorsviten kördes
+efter varje steg och var grön varje gång. `make check` i dahlny var grön vid varje dahlny-commit. Inga nya AI-anrop:
+alla mätningar använder samma T5-fil som omgång 3 (0 USD av taket på 30 USD).
+
+| Efter steg | Motorsviten | Plan 1: otilldelat / tvetydigt / bekräftat | Plan 0: otilldelat / tvetydigt / bekräftat | Summa bekräftat |
+| --- | --- | --- | --- | --- |
+| Utgångsläge | 1427 | 4,83 (11,5 %) / 6,66 / 40,65 | 9,26 (19,3 %) / 3,92 / 41,90 | 82,55 |
+| 1 Extern etikett skrivs aldrig om | 1427 | 4,83 / 6,66 / 41,15 | 9,26 / 3,92 / 41,90 | 83,05 |
+| 2 En läsning per plats (dahlny) | 1427 | 4,83 / 6,63 / 41,19 | 9,26 / 1,67 / 44,52 | 85,72 |
+| 3 Etikett utan ledare | 1434 | 4,83 / 6,63 / 41,19 | 3,14 (6,6 %) / 1,67 / 52,08 | 93,27 |
+| 4 Spridning till stopp, grenar ärver | 1441 | 4,83 (11,5 %) / 0,00 / 50,78 | 3,14 (6,6 %) / 0,79 / 52,08 (+0,96 granska) | 102,86 |
+| 5 Utredning, ingen ändring | – | oförändrat | oförändrat | 102,86 |
+| 6 Fångad ledarände, möten utan rör | 1450 | 4,83 / 0,00 / 50,78 | 3,14 / 0,79 / 52,08 | 102,86 |
+| 7 Utanför entreprenadgräns | 1459 | 4,83 (11,5 %) / 0,00 / 50,78 | 2,47 (5,2 %) / 0,79 / 51,06 (+0,96 granska) + 1,68 utanför | 101,85 |
+
+Meter i bekräftat är mängdens (`confirmed_total_m` − granska); de räknar överbryggade streckpauser och kan därför
+vara större än den ritade linjelängden. A.4 är fortsatt 88/88 (mätt efter steg 4; steg 6–7 rör inte etiketterna).
+
+**1.** En extern etikett med `read_confidence` ≥ `labels.min_read_confidence` (skickas som `_meta` i T5-filen)
+skyddas: bladets mönster får inte byta tvillingtecken i den. Ville grammatiken läsa annat flaggas det
+(`external_label_against_grammar`, med `grammar_would_read`). `L9-28` behåller DN28 (+0,50 m).
+
+**2.** `one_label_per_place`: två läsningar med IoU > `tiles.dedupe_iou` levereras aldrig båda. Ordning: bekräftad av
+T5/T5R-modell > tolkningsbar enligt grammatiken > OCR. `S01-P2` / `501-P2` ger en rad, och S01 DN75 fäster igen.
+
+**3.** Etikett utan ledare → närmaste parallella rör inom `assign.proximity_max_mm_paper` (6 mm), konfidens 0,8; ett
+andra rör inom 1,5 × avståndet gör den tvetydig. Streckade ledningar räknas som en sträcka. `KV01-E13-40` i mark
+mäts (+7,55 m). Konfidensen följer med till mängdraden (`anchor_confidence` → `PipeRunDraft.confidence`).
+
+**4.** Identiteten följer röret genom raka fortsättningar och böjar till ny etikett, symbol, dimensionsbyte eller
+entreprenadgräns, utan längdbudget. En gren utan egen etikett ärver system och material; dimensionen är osäker
+(granskningsnivå, 0,6) – utom där bladets egen kopplingsledningsregel säger annat. Nät (≥ 2 cykler) ärver inte.
+
+**5. S01 DN75 (1,05 m) slogs ihop med DN110 – orsak, inte rättad.** Sträckan är en blindgren från DN110-noden vid
+(769, 744) upp till en symbol vid (750, 688). Etiketten `S01-P2` / `75` vid (809, 691) fäster via symbolen (svagt:
+ledaren pekar på symbolen, inte på röret). Motorns regel `junction_dn_over_symbol_labels` ger då grenen den grövre
+dimensionen: ingen dimensionsbytesmarkering är ritad, och grenen bär bara symbolfästa etiketter. Före steg 2 lästes
+etiketten `S01-P` (annan bas), så regeln slog inte till och grenen blev DN75. **Fråga:** är det en DN75-anslutning
+till stammen, eller DN110 ända fram? Ingen reduktion är ritad.
+
+**6.** En ledare som stannar strax före röret fångas av det närmaste röret inom 2 × `assign.leader_end_tolerance_mm_paper`
+(2 mm, skickas till motorn i pt), konfidens 0,7. Ligger ett annat rör inom 1,5 × avståndet fångas inget. Etiketter vars
+ledare slutar i samma punkt utan rör rapporteras (`leaders_meet_without_pipe`, minst 3). På Årjäng ändras inga
+meter: de två närmaste missarna (`S01-P3` vid (701,8; 621,1) och `S03-P2` vid (701,8; 635,3)) ligger 2,79 mm från
+röret, utanför 2 mm. **Punkten i WC är en ledare, inte fem:** ett staplat block med fem rader (`VV01-K1-15-F`,
+`KV01-K1-15-W` ×2, `S01-P3`, `L9-28`) har en gemensam ledare som slutar vid **(532,8; 695,26)** på plan 1, 58 mm från
+närmaste rör. Den rapporteras med punkten.
+
+**7.** En not `ENTR. GRÄNS` (även `ENTREPRENADGRÄNS`, `Gräns för entreprenad`) med ledare till ett rör kapar röret i
+punkten. Sidan utan egen etikett blir `OUTSIDE_CONTRACT`: varken bekräftad eller otilldelad, även den kapade bitens
+yttre del. Längden redovisas som "utanför entreprenadgräns" i `quantities.json`, i dahlnys
+`SheetTakeoff.outside_contract`, i mängdlistan (eget avsnitt, ingår inte i summan) och lila med ett kryss i gränspunkten
+i den markerade PDF:en. Andelen otilldelat räknas innanför gränsen. Etiketter på båda sidor, på ingen sida eller en
+ledare som inte når något rör ger `contract_boundary_undecided`. Plan 0: tre av fyra gränser kapar.
+
+| Utanför entreprenadgräns (plan 0) | Meter |
+| --- | --- |
+| KV01-E13-40 | 0,94 |
+| S01-P2-110 | 0,37 |
+| S03-P2-110L | 0,37 |
+| Summa | 1,68 |
+
+Den fjärde noten (vid (1394, 813)) pekar på en streckad linje i lagret `V-53-FE-_-`, som motorn inte läser som rör på
+plan 0. Lagret har ingen systemkod, så lagerregeln gäller inte. Den gränsen rapporteras som "når inget rör".
+
+### Fynd som inte rättats
+
+- **Plan 0, lagret `V-53-FE-_-` (ca 5,5 m, penna 1,44):** läses inte som rör alls och syns därför varken som
+  bekräftat eller otilldelat. Etiketten `S02-P2-110` / `VG+-857` pekar på det. Behöver utredas innan andelen
+  otilldelat på plan 0 (5,2 %) kan tas som slutlig.
+- **Pilspetsar ritade i rörpennan räknas som rörlängd** (ca 0,2 m per pil på plan 0). Det gällde redan före
+  omgången; nu syns det i "utanför"-raderna.
+- **Plan 1 otilldelat 4,83 m** är oförändrat: grupp A 3,84 m (fortsättning som ingen etikett når), grupp C 0,95 m
+  (ledare utan rör, punkten ovan).
+
+### Korpusgrinden
+
+Steg 3, 4, 6 och 7 är generella regler som gäller också utan T5. Utan T5 får korpusen inte bli sämre än main. Varje
+regel kan slås av vid jämförelse (steg 3 med avstånd 0: då fäster bara ett parallellt rör som går genom texten):
+
+```bash
+vvs-takeoff analyze RITNING.pdf --out UT --rule semantics.proximity.LEADERLESS_MM=0
+vvs-takeoff analyze RITNING.pdf --out UT --rule pipes.ownership.PROPAGATE_TO_STOPS=false
+vvs-takeoff analyze RITNING.pdf --out UT --rule semantics.attachment.NEAR_MISS_NEAREST=false
+vvs-takeoff analyze RITNING.pdf --out UT --rule pipes.ownership.CONTRACT_BOUNDARIES=false
+```
+
