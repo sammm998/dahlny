@@ -16,7 +16,7 @@ Postgres efter omstart av containern: `pg_ctlcluster 16 main start`. `make check
 | 5 | klar | Furhoffs-utkastet har B201B, B202B, TS501, 5 frågor och radonoptionen (DoD ok); T9-text kontrolleras mot underlaget; .eml + Excelbilaga; Graph/Gmail-stubbar; T10 |
 | 6–8 | delvis | A.4 88/88 exakt; skala verifierad på båda planerna; otilldelat 16,5 % / 16,2 % (inkl. tvetydigt) – mål 2 % ej nått, varje sträcka listad med orsak i `make eval`; A.5 6/11 exakt, 5 flaggade; A3-5, A3-6, A3-13 hittas; FÖRKLARINGAR + MATRIS FÖR ISOLERING lästa (T2L) |
 | 6b | klar | `demo/markerad.pdf`: summering först, alla rör färgade per system × dimension, otilldelat/tvetydigt/utanför i egna färger, ritat som sidinnehåll (Adobe/Bluebeam); `mangdlista.xlsx` (rör, utanför, isolering, rördelar) |
-| UI | ej påbörjad | |
+| UI | klar (v1) | React-sida utan byggsteg (`frontend/index.html`, React/htm i `frontend/vendor/`) på `/ui`: projekt, TB-lista, ritning, mängdlista, avvikelser, matchning, förfrågningar, export; klick till källsidan med markering; korrigeringar → `correction` + projektets logg. Testad i Chromium. Uppladdning i UI och SSO: stubbar |
 | 12 (demo) | klar | `make demo` kör Årjäng hela vägen → `demo/` (artikellista, avvikelser, mängdlista, markerad PDF, .eml, Prixel) |
 | 9 | klar (väg A/B som bibliotek; inte inkopplad i demo/UI) | Syntetisk DXF exakt (7,0 m och 1,5 m, mm-enhet; okänt lager räknas inte; utan $INSUNITS avvisas), syntetisk IFC exakt (IfcPipeSegment + system + Qto-längd + DN); DWG kräver dwg2dxf/ODA (felmeddelande) |
 | 10–11 | ej påbörjade | |
@@ -70,7 +70,7 @@ Postgres efter omstart av containern: `pg_ctlcluster 16 main start`. `make check
 
 - Otilldelat ≤ 2 %: plan 1 4,0 m + 2,75 m tvetydigt (W40/W – väntar på konsulten), plan 0 7,5 m varav 5,0 m i
   V-53-FE-_- (etiketter S02-P2 2,3 pt från linjen fäster inte – utred anknytningen för generaliserade familjer).
-- UI (SPEC 9), fas 9–11, KOMIGANG.md.
+- Fas 10–11, KOMIGANG.md, draft-PR.
 
 Nya ritningar (Higab): testade och delvis rättade, se `docs/nya_ritningar_higab.md` (otilldelat 76 %/62 %/97 %;
 kvar: täta knippen, för stor rörgeometri, demonteringsblad i mängdningen, rasterbladet väg D).

@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="sv">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>VS-Kalkyl – granskning</title>
+<style>
+  :root { --bg:#f7f7f5; --fg:#1d1d1b; --muted:#6b6b66; --line:#dcdcd6; --accent:#1f5fbf; --crit:#b3261e; --warn:#a15c00; --info:#3d6b35; }
+  * { box-sizing: border-box; }
+  body { margin:0; font: 14px/1.45 system-ui, sans-serif; background:var(--bg); color:var(--fg); }
+  header { display:flex; gap:16px; align-items:center; padding:10px 16px; border-bottom:1px solid var(--line); background:#fff; position:sticky; top:0; z-index:2; }
+  header h1 { font-size:16px; margin:0; }
+  nav button { border:0; background:none; padding:6px 10px; cursor:pointer; color:var(--muted); border-radius:6px; }
+  nav button.on { background:#e8eefb; color:var(--accent); font-weight:600; }
+  main { padding:16px; max-width:1400px; margin:auto; }
+  table { border-collapse:collapse; width:100%; background:#fff; }
+  th, td { border-bottom:1px solid var(--line); padding:6px 8px; text-align:left; vertical-align:top; }
+  th { font-size:12px; color:var(--muted); font-weight:600; position:sticky; top:52px; background:#fff; }
+  .num { text-align:right; font-variant-numeric:tabular-nums; }
+  .src { color:var(--accent); cursor:pointer; text-decoration:underline dotted; }
+  .child td:first-child { padding-left:28px; color:var(--muted); }
+  .sev-critical { color:var(--crit); font-weight:600; } .sev-warning { color:var(--warn); } .sev-info { color:var(--info); }
+  .flag { display:inline-block; font-size:11px; background:#fff3d6; border:1px solid #f0d58a; border-radius:4px; padding:0 4px; margin:1px; }
+  .stub { background:#eef2f7; border:1px solid #c9d3e0; padding:8px 12px; border-radius:6px; margin:8px 0; }
+  .modal { position:fixed; inset:0; background:rgba(0,0,0,.45); display:flex; align-items:center; justify-content:center; z-index:5; }
+  .modal .box { background:#fff; max-width:95vw; max-height:92vh; overflow:auto; padding:12px; border-radius:8px; }
+  .pagewrap { position:relative; display:inline-block; }
+  .hl { position:absolute; border:3px solid #e8112d; background:rgba(232,17,45,.12); pointer-events:none; }
+  input.edit { width:80px; }
+  .cards { display:flex; gap:12px; flex-wrap:wrap; margin-bottom:12px; }
+  .card { background:#fff; border:1px solid var(--line); border-radius:8px; padding:10px 14px; min-width:160px; }
+  .card b { font-size:20px; display:block; }
+</style>
+</head>
+<body>
+<div id="app"></div>
+<script src="vendor/react.production.min.js"></script>
+<script src="vendor/react-dom.production.min.js"></script>
+<script src="vendor/htm.umd.js"></script>
+<script>
+const { useState, useEffect } = React;
+const html = htm.bind(React.createElement);
+const api = (p, opt) => fetch(p, opt).then(r => { if (!r.ok) throw new Error(r.status); return r.json(); });
+const fmt = v => v === null || v === undefined || v === "" ? "–" : (typeof v === "number" ? v.toLocaleString("sv-SE", {maximumFractionDigits: 2}) : String(v));
+const VIEWS = [["projekt","Projekt"],["tb","TB-lista"],["ritning","Ritning"],["mangd","Mängdlista"],["avvikelser","Avvikelser"],["matchning","Matchning"],["forfragningar","Förfrågningar"],["export","Export"]];
+
+function Source({ pid, refs, onClose }) {
+  const ref = (refs || []).find(r => r && r.page) || {};
+  const doc = ref.document || ref.doc;
+  const k = 110 / 72;
+  if (!doc) return html`<div class="modal" onClick=${onClose}><div class="box">Källan saknar dokument och sida.</div></div>`;
+  const b = ref.bbox;
+  return html`<div class="modal" onClick=${onClose}><div class="box" onClick=${e => e.stopPropagation()}>
+    <div><b>${doc}</b>, sida ${ref.page} ${ref.method ? "· " + ref.method : ""} ${ref.quote ? html`<div>”${ref.quote}”</div>` : ""}</div>
+    <div class="pagewrap"><img src=${`/api/projects/${pid}/pages/${encodeURIComponent(doc)}/${ref.page}.png`} />
+      ${b ? html`<div class="hl" style=${{left: b[0]*k-6, top: b[1]*k-6, width: (b[2]-b[0])*k+12, height: Math.max((b[3]-b[1])*k, 10)+12}}></div>` : ""}</div>
+    <div><button onClick=${onClose}>Stäng</button></div></div></div>`;
+}
+
+function Editable({ value, onSave }) {
+  const [v, setV] = useState(value ?? "");
+  const [on, setOn] = useState(false);
+  if (!on) return html`<span class="src" title="Klicka för att rätta" onClick=${() => setOn(true)}>${fmt(value)}</span>`;
+  return html`<span><input class="edit" value=${v} onChange=${e => setV(e.target.value)} />
+    <button onClick=${() => { onSave(v); setOn(false); }}>Spara</button></span>`;
+}
+
+function App() {
+  const [projects, setProjects] = useState([]);
+  const [pid, setPid] = useState(null);
+  const [b, setB] = useState(null);
+  const [view, setView] = useState("projekt");
+  const [src, setSrc] = useState(null);
+  const [sheet, setSheet] = useState(null);
+  const [msg, setMsg] = useState("");
+  useEffect(() => { api("/api/projects").then(p => { setProjects(p); if (p.length) setPid(p[0].id); }).catch(() => setMsg("API:t svarar inte – starta backend (make dev).")); }, []);
+  const load = () => pid && api(`/api/projects/${pid}`).then(setB);
+  useEffect(() => { load(); }, [pid]);
+  const correct = (entity, id, field, old, nw) => api(`/api/projects/${pid}/corrections`, {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({entity, entity_id: id, field, old, new: nw})}).then(r => { setMsg(`Korrigering sparad${r.stored_in_db ? " i databasen" : " i projektets logg (databasen nås inte)"}.`); load(); });
+  const S = refs => () => setSrc(refs);
+  if (!b) return html`<div><header><h1>VS-Kalkyl</h1></header><main>${msg || "Laddar …"}</main></div>`;
+  const p = b.project || {};
+  const files = f => `/api/projects/${pid}/files/${encodeURIComponent(f)}`;
+  let body;
+  if (view === "projekt") body = html`<div>
+      <h2>${p.name || pid}</h2><div>${p.customer || ""} · uppdrag ${p.project_no || "–"} · ${p.consultant || ""}</div>
+      <div class="cards">
+        <div class="card"><b>${b.items.length}</b>TB-poster</div>
+        <div class="card"><b>${b.deviations.filter(d => d.severity === "critical").length}</b>kritiska avvikelser</div>
+        <div class="card"><b>${fmt(b.quantities.reduce((s, q) => s + q.length_m, 0))} m</b>rör (bekräftat)</div>
+        <div class="card"><b>${b.matches.filter(m => m.outcome === "request").length}</b>rader till förfrågan</div>
+      </div>
+      <h3>Dokument</h3><table><tr><th>Fil</th><th>Sidor</th><th>Sidtyper</th></tr>
+      ${b.documents.map(d => html`<tr><td>${d.filename}</td><td class="num">${d.pages}</td><td>${d.kinds.join(", ")}</td></tr>`)}</table>
+      <div class="stub">Uppladdning i gränssnittet och inloggning (SSO) är inte påslagna: kör <code>python -m app.pipeline.demo INDATA UT</code> (SPEC 14 fråga 6).</div></div>`;
+  if (view === "tb") body = html`<table><tr><th>Beteckning</th><th>Produkt</th><th>Fabrikat / typ</th><th>Art.nr</th><th>RSK</th><th class="num">Antal</th><th>Läge</th><th>Källa</th><th>Flaggor</th></tr>
+    ${b.items.map(it => html`<tr class=${it.parent_designation ? "child" : ""}>
+      <td>${it.parent_designation ? "↳ " + it.parent_designation : it.designation}</td><td>${it.description}</td>
+      <td>${[it.manufacturer, it.model].filter(Boolean).join(" ")}</td><td>${fmt(it.article_no)}</td><td>${fmt(it.rsk)}</td>
+      <td class="num"><${Editable} value=${it.quantity} onSave=${v => correct("item", it.id, "quantity", it.quantity, v)} /></td>
+      <td>${it.quantity_mode}</td><td><span class="src" onClick=${S(it.source_refs)}>sida ${(it.source_refs[0] || {}).page}</span></td>
+      <td>${(it.flags || []).map(f => html`<span class="flag">${f}</span>`)}</td></tr>`)}</table>`;
+  if (view === "ritning") {
+    const sheets = b.sheets.filter(s => s.coverage && s.coverage.drawn_m);
+    const cur = sheet || (sheets[0] && sheets[0].page);
+    body = html`<div><div>${sheets.map(s => html`<button onClick=${() => setSheet(s.page)}>Blad ${s.page}</button>`)}
+      <a href=${files("markerad.pdf")} target="_blank"> Öppna markerad PDF</a></div>
+      ${cur ? html`<div>${(() => { const c = sheets.find(s => s.page === cur).coverage; return html`<div class="cards">
+        <div class="card"><b>${fmt(c.drawn_m)} m</b>ritat</div><div class="card"><b>${fmt(c.confirmed_m)} m</b>bekräftat</div>
+        <div class="card"><b>${fmt(c.unowned_m)} m</b>otilldelat</div><div class="card"><b>${fmt(c.ambiguous_m)} m</b>tvetydigt</div>
+        <div class="card"><b>${fmt(c.outside_contract_m)} m</b>utanför entreprenadgräns</div></div>`; })()}
+        <img style=${{maxWidth: "100%"}} src=${`/api/projects/${pid}/pages/${encodeURIComponent(b.drawing_pdf)}/${cur}.png`} /></div>` : "Ingen ritning mängdad."}
+      <div class="stub">Redigering direkt i ritningen (rita om, dela, byt beteckning på en sträcka) görs i vvs_engine:s egen vy; här rättas raderna i Mängdlistan och sparas som korrigeringar.</div></div>`;
+  }
+  if (view === "mangd") body = html`<div><table><tr><th>System</th><th>Material</th><th>Dimension</th><th class="num">Meter</th><th class="num">Tvetydigt</th><th>Blad</th><th>Flaggor</th></tr>
+    ${b.quantities.map(q => html`<tr><td>${q.system}</td>
+      <td><${Editable} value=${q.material} onSave=${v => correct("quantity", q.id, "material", q.material, v)} /> ${q.material_source && q.material_source !== "etikett" ? html`<span class="flag">${q.material_source} ${fmt(q.material_confidence)}</span>` : ""}</td>
+      <td>${fmt(q.dim)}</td><td class="num"><${Editable} value=${q.length_m} onSave=${v => correct("quantity", q.id, "length_m", q.length_m, v)} /></td>
+      <td class="num">${fmt(q.ambiguous_m)}</td><td>${q.pages.join(", ")}</td><td>${q.flags.map(f => html`<span class="flag">${f}</span>`)}</td></tr>`)}</table>
+    <h3>Utanför entreprenadgräns</h3><table><tr><th>Beteckning</th><th class="num">Meter</th></tr>${b.outside_contract.map(o => html`<tr><td>${fmt(o.designation)}</td><td class="num">${fmt(o.length_m)}</td></tr>`)}</table>
+    <h3>Isolering</h3><table><tr><th>System</th><th>Dim</th><th class="num">Meter</th><th>TB-krav</th><th>Serie</th></tr>${b.insulation.map(i => html`<tr><td>${i.system}</td><td>${fmt(i.dim)}</td><td class="num">${fmt(i.length_m)}</td><td>${fmt(i.requirement)}</td><td>${fmt(i.series)}</td></tr>`)}</table>
+    <h3>Rördelar (uppskattning)</h3><table><tr><th>Identitet</th><th class="num">Böjar</th></tr>${b.fittings.map(f => html`<tr><td>${f.identity}</td><td class="num">${f.bends}</td></tr>`)}</table></div>`;
+  if (view === "avvikelser") body = html`<table><tr><th>Grad</th><th>Regel</th><th>Meddelande</th><th>Fråga till konsult</th><th>Källa</th><th>Status</th></tr>
+    ${["critical","warning","info"].flatMap(sv => b.deviations.filter(d => d.severity === sv)).map(d => html`<tr>
+      <td class=${"sev-" + d.severity}>${d.severity}</td><td>${d.rule_id}</td><td>${d.message}</td><td>${fmt(d.question)}</td>
+      <td>${d.refs && d.refs.length ? html`<span class="src" onClick=${S(d.refs)}>sida ${d.refs[0].page}</span>` : "–"}</td>
+      <td><select onChange=${e => correct("deviation", d.id, "status", "open", e.target.value)}><option>open</option><option>resolved</option><option>ignored</option></select></td></tr>`)}</table>`;
+  if (view === "matchning") body = html`<table><tr><th>Position</th><th>Produkt</th><th>Artikel</th><th>Metod</th><th class="num">Score</th><th>Utfall</th><th>Motivering</th><th>Källa</th></tr>
+    ${b.matches.map(m => html`<tr><td>${m.position}</td><td>${m.product}</td><td>${m.article ? `${m.article.dahl_art_no} ${m.article.name}` : "–"}</td>
+      <td>${m.method}</td><td class="num">${fmt(m.score)}</td>
+      <td><select value=${m.outcome} onChange=${e => correct("match", m.id, "outcome", m.outcome, e.target.value)}>${["stock","virtual","request","uncertain"].map(o => html`<option>${o}</option>`)}</select></td>
+      <td>${m.reason}</td><td><span class="src" onClick=${S(m.refs)}>TB</span></td></tr>`)}</table>`;
+  if (view === "forfragningar") body = html`<div><div class="stub">Mailen är utkast och skickas aldrig härifrån. Utkast direkt i Outlook eller Gmail kräver behörighet (SPEC 14 fråga 3) – tills dess: ladda ned .eml och öppna i mailprogrammet.</div>
+    <table><tr><th>Leverantör</th><th>Utkast</th></tr>${b.requests.map(f => html`<tr><td>${f.replace(".eml", "")}</td><td><a href=${files("forfragningar/" + f)}>${f}</a></td></tr>`)}</table></div>`;
+  if (view === "export") body = html`<div><table><tr><th>Fil</th></tr>${b.exports.map(f => html`<tr><td><a href=${files(f)}>${f}</a></td></tr>`)}</table>
+    <div class="stub">Export direkt till Prixel via API är inte påslagen (SPEC 14 fråga 1): använd prixel.xlsx eller prixel_urklipp.txt.</div></div>`;
+  return html`<div><header><h1>VS-Kalkyl</h1>
+    <select value=${pid} onChange=${e => setPid(e.target.value)}>${projects.map(x => html`<option value=${x.id}>${x.name || x.id}</option>`)}</select>
+    <nav>${VIEWS.map(([k, t]) => html`<button class=${view === k ? "on" : ""} onClick=${() => setView(k)}>${t}</button>`)}</nav>
+    <span style=${{color: "var(--muted)"}}>${msg}</span></header>
+    <main>${body}</main>${src ? html`<${Source} pid=${pid} refs=${src} onClose=${() => setSrc(null)} />` : ""}</div>`;
+}
+ReactDOM.createRoot(document.getElementById("app")).render(html`<${App} />`);
+</script>
+</body>
+</html>

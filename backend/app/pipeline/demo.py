@@ -229,6 +229,84 @@ def run(inputs: Path, out: Path, register: Path | None, use_ai: bool) -> dict[st
             for d in build_requests(items, matches, devs, project):
                 compose(d, ai)
                 (mail_dir / f"{d.supplier}.eml".replace("/", "_")).write_bytes(to_eml(d))
+    # ---------------------------------------------------------------- paket för granskningsgränssnittet
+    import dataclasses
+    import uuid as _uuid
+
+    def ident(*parts: object) -> str:
+        return str(_uuid.uuid5(_uuid.NAMESPACE_URL, "vs-kalkyl:" + ":".join(map(str, parts))))
+
+    def plain(o: Any) -> Any:
+        if dataclasses.is_dataclass(o) and not isinstance(o, type):
+            return {k: plain(v) for k, v in dataclasses.asdict(o).items()}
+        if hasattr(o, "model_dump"):
+            return plain(o.model_dump())
+        if isinstance(o, dict):
+            return {str(k): plain(v) for k, v in o.items()}
+        if isinstance(o, list | tuple | set):
+            return [plain(v) for v in o]
+        if isinstance(o, Path):
+            return str(o)
+        if o is None or isinstance(o, str | int | float | bool):
+            return o
+        return str(o)
+
+    items_out = []
+    for it in tb.all_items() if tb else []:
+        d = plain(dataclasses.replace(it, children=[]))
+        d["id"] = ident("item", it.parent_designation, it.designation, it.description)
+        items_out.append(d)
+    goods = [it for it in tb.all_items() if it.kind == "object"] if tb else []
+    bundle = {
+        "project": plain(project) if project else {},
+        "documents": [
+            {
+                "filename": Path(d.file.filename).name,
+                "pages": len(d.pages),
+                "kinds": [p.kind.kind for p in d.pages],
+            }
+            for d in p1.documents
+        ],
+        "items": items_out,
+        "rules": plain(tb.rules) if tb else [],
+        "deviations": [
+            {**plain(d), "id": ident("dev", d.rule_id, d.message), "severity": d.effective_severity}
+            for d in devs
+        ],
+        "quantities": [{**plain(r), "id": ident("qty", r.system, r.material, r.dim)} for r in q_rows],
+        "outside_contract": plain(outside),
+        "insulation": plain(ins),
+        "fittings": plain(fit),
+        "legend_tables": plain(tables),
+        "sheets": [
+            {"page": sh.page, "coverage": plain(sh.coverage), "scale": plain(sh.scale)}
+            for sh in (takeoff.sheets if takeoff else [])
+        ],
+        "matches": [
+            {
+                "id": ident("match", it.parent_designation, it.designation, it.description),
+                "position": it.parent_designation or it.designation,
+                "product": it.description,
+                "outcome": m.outcome,
+                "article": plain(m.article),
+                "method": m.method,
+                "score": m.score,
+                "reason": m.reason,
+                "refs": it.source_refs,
+            }
+            for it, m in zip(goods, matches, strict=False)
+        ],
+        "requests": sorted(p.name for p in (out / "forfragningar").glob("*.eml"))
+        if (out / "forfragningar").exists()
+        else [],
+        "exports": sorted(p.name for p in out.iterdir() if p.is_file() and p.name != "bundle.json"),
+        "drawing_pdf": Path(draw_doc.file.filename).name if draw_doc else None,
+        "tb_pdf": Path(tb_doc.file.filename).name if tb_doc else None,
+    }
+    if tb_doc is not None:
+        (out / "_indata" / Path(tb_doc.file.filename).name).parent.mkdir(exist_ok=True)
+        (out / "_indata" / Path(tb_doc.file.filename).name).write_bytes(tb_doc.file.data)
+    (out / "bundle.json").write_text(json.dumps(bundle, ensure_ascii=False, indent=1), encoding="utf-8")
     summary.update(
         {
             "tb_items": len(tb.all_items()) if tb else 0,
