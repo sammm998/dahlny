@@ -26,6 +26,7 @@ from __future__ import annotations
 import argparse
 import json
 import logging
+import re
 import time
 import unicodedata
 import uuid
@@ -41,7 +42,7 @@ import pymupdf
 from app.ai.client import AIClient, AIError, AIResult, AITaskFailed, CostCapExceeded
 from app.ai.datatypes import ContentPart, ImagePart, ProviderError, ProviderNotConfigured, TextPart
 from app.ai.schemas.labels import LabelReread, TileLabel, TileLabels, TileTriage
-from app.config.settings import load_thresholds
+from app.config.settings import load_label_grammar, load_models_config, load_thresholds
 from app.ingest.pdf_typed import open_pdf, png_bytes, rect
 
 BBox = tuple[float, float, float, float]
@@ -644,13 +645,32 @@ def _combine(
     return sorted(one_label_per_place(out), key=lambda r: (round(r.bbox[1]), r.bbox[0]))
 
 
-def one_label_per_place(labels: list[LabelResult]) -> list[LabelResult]:
-    """En läsning per ställe: ligger två etiketter på samma ställe (överlapp ≥ tiles.dedupe_iou av den mindre)
-    och är den enas text en del av den andras, är den kortare ett fragment – oftast text som skars av en bits
-    kant och lästes lika av båda läsarna. Fragmentet tas bort; den hela läsningen behålls med sin egen
-    konfidens (en flaggad hel läsning förblir flaggad – fragmentets enighet säger inget om resten).
-    Texter som inte är delar av varandra behålls båda."""
+def _confirming_models() -> set[str]:
+    """Modellerna vars läsning räknas som Sonnet-bekräftad: T5 och omläsningen T5R med eskalering."""
+    config = load_models_config()
+    return {m for task in ("T5", "T5R") for m in config.task(task).model_chain()}
+
+
+def _rank(lab: LabelResult, confirmers: set[str]) -> tuple[int, int, float, int]:
+    """Vilken av två läsningar på samma ställe som levereras: bekräftad av T5/T5R > tolkningsbar enligt
+    grammatiken > övrigt (oftast bara OCR); sedan konfidens och längd."""
+    confirmed = "reread" in lab.method or any(
+        r.source == "vision" and r.model in confirmers for r in lab.readings
+    )
+    t = normalize(lab.text)
+    parseable = any(re.match(p, t) for p in load_label_grammar().all_patterns().values())
+    return (int(confirmed), int(parseable), lab.read_confidence, len(t))
+
+
+def one_label_per_place(labels: list[LabelResult], confirmers: set[str] | None = None) -> list[LabelResult]:
+    """En läsning per ställe (tiles.dedupe_iou):
+    - fragment: ligger två etiketter på samma ställe (överlapp av den mindre) och är den enas text en del av
+      den andras, är den kortare ett fragment av text som skars av en bits kant. Den hela läsningen behålls
+      med sin egen konfidens (en flaggad hel läsning förblir flaggad);
+    - samma fotavtryck (IoU över gränsen) men olika text: två läsningar av samma bläck (`S01-P2` och OCR:s
+      `501-P2`). Bara en levereras – den som rangordnas högst (_rank)."""
     same_place = load_thresholds().get("tiles.dedupe_iou")
+    confirmers = confirmers if confirmers is not None else _confirming_models()
     order = sorted(labels, key=lambda r: (-len(normalize(r.text)), -r.read_confidence, r.bbox))
     kept: list[LabelResult] = []
     for lab in order:
@@ -658,7 +678,16 @@ def one_label_per_place(labels: list[LabelResult]) -> list[LabelResult]:
         if any(overlap_of_smaller(k.bbox, lab.bbox) >= same_place and t in normalize(k.text) for k in kept):
             continue
         kept.append(lab)
-    return kept
+    best: list[LabelResult] = []
+
+    def priority(r: LabelResult) -> tuple[float, ...]:
+        return (*(-v for v in _rank(r, confirmers)), *r.bbox)
+
+    for lab in sorted(kept, key=priority):
+        if any(iou(k.bbox, lab.bbox) > same_place for k in best):
+            continue
+        best.append(lab)
+    return best
 
 
 def _crop(page: pymupdf.Page, box: BBox) -> bytes:

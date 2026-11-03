@@ -435,3 +435,48 @@ def test_a_fragment_inside_a_whole_reading_at_the_same_place_is_dropped() -> Non
     kept = one_label_per_place([part, whole, other, dash])
     assert sorted(k.text for k in kept) == ["=", "S01-P2-110", "W40"]  # = är ingen del av etiketten
     assert next(k for k in kept if k.text == "S01-P2-110").read_confidence == 0.75  # förblir flaggad
+
+
+def _lab(
+    text: str, conf: float, method: str, model: str | None, box: BBox = (100.0, 100.0, 140.0, 110.0)
+) -> Any:
+    from app.drawings.labels import LabelResult
+
+    readings = []
+    if model is not None:
+        readings.append(Reading(text, box, 0.0, conf, "vision", 0, model=model))
+    if "ocr" in method:
+        readings.append(Reading(text, box, 0.0, conf, "ocr", 0))
+    return LabelResult(text, box, 0.0, conf, method, readings, [])
+
+
+def test_two_readings_of_the_same_place_are_never_both_delivered() -> None:
+    from app.drawings.labels import one_label_per_place
+
+    sonnet = _lab("S01-P2", 0.98, "vision+ocr", T5)
+    ocr = _lab("501-P2", 0.75, "ocr", None, (101.0, 100.0, 140.0, 110.0))
+    assert [k.text for k in one_label_per_place([ocr, sonnet])] == ["S01-P2"]
+
+
+def test_sonnet_confirmed_beats_a_more_confident_haiku_and_ocr_reading() -> None:
+    from app.drawings.labels import one_label_per_place
+
+    haiku = _lab("L9-Z8", 0.98, "vision+ocr", T5T)
+    reread = _lab("L9-28", 0.85, "vision+ocr+reread", T5T)
+    assert [k.text for k in one_label_per_place([haiku, reread])] == ["L9-28"]
+
+
+def test_a_reading_the_grammar_can_parse_beats_one_it_cannot() -> None:
+    from app.drawings.labels import one_label_per_place
+
+    garbled = _lab("5O1-P2", 0.75, "ocr", None)
+    parsed = _lab("S01-P2", 0.75, "ocr", None)
+    assert [k.text for k in one_label_per_place([garbled, parsed])] == ["S01-P2"]
+
+
+def test_neighbouring_labels_that_only_touch_are_both_kept() -> None:
+    from app.drawings.labels import one_label_per_place
+
+    upper = _lab("S01-P2", 0.98, "vision+ocr", T5, (100.0, 100.0, 140.0, 110.0))
+    lower = _lab("75", 0.98, "vision+ocr", T5, (100.0, 108.0, 115.0, 118.0))
+    assert sorted(k.text for k in one_label_per_place([upper, lower])) == ["75", "S01-P2"]
