@@ -39,7 +39,8 @@ def main() -> int:
         s = Image.fromarray(np.clip(g + rng.normal(0, SCAN_NOISE, g.shape), 0, 255).astype(np.uint8))
         buf = io.BytesIO()
         s.save(buf, "PNG")
-        scan.new_page(width=page.rect.width, height=page.rect.height).insert_image(page.rect, stream=buf.getvalue())
+        sp = scan.new_page(width=page.rect.width, height=page.rect.height)
+        sp.insert_image(page.rect, stream=buf.getvalue())
         dx = int(KEYSTONE * w)
         ph = img.transform((w, h), Image.QUAD, (dx, 0, 0, h, w, h, w - dx, 0), resample=Image.BICUBIC,
                            fillcolor=(235, 235, 230))  # fmt: skip
@@ -49,7 +50,8 @@ def main() -> int:
         a = np.clip(a * shade[..., None] + rng.normal(0, PHOTO_NOISE, a.shape), 0, 255).astype(np.uint8)
         buf = io.BytesIO()
         Image.fromarray(a).filter(ImageFilter.GaussianBlur(BLUR)).save(buf, "JPEG", quality=80)
-        photo.new_page(width=page.rect.width, height=page.rect.height).insert_image(page.rect, stream=buf.getvalue())
+        pp = photo.new_page(width=page.rect.width, height=page.rect.height)
+        pp.insert_image(page.rect, stream=buf.getvalue())
     scan.save(args.out / f"{args.pdf.stem}_200dpi.pdf")
     photo.save(args.out / f"{args.pdf.stem}_foto.pdf")
     return 0
