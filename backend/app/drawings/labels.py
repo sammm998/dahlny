@@ -810,6 +810,8 @@ def main(argv: list[str] | None = None) -> int:
         "model": ai.config.task("T5").model if ai is not None else None,
         "ocr": None if ocr is None else ocr.name,
         "ai": ai is not None,
+        # läsarens egen gräns för en säker läsning: vvs_engine skriver aldrig om en etikett över den
+        "min_read_confidence": load_thresholds().get("labels.min_read_confidence"),
     }
     args.out.write_text(json.dumps(out, ensure_ascii=False, indent=1), encoding="utf-8")
     print(f"Totalt {out['_meta']['seconds']} s. Rader: {args.out}")
