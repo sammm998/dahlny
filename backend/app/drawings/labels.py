@@ -114,10 +114,12 @@ class TileStats:
 
     no_text: int = 0  # OCR fann ingen text → ingen AI
     empty: int = 0  # T5T: tom
-    simple: int = 0  # T5T: enkel, Haikus läsning används
-    verified: int = 0  # T5T: svår, men Haiku och OCR överens om varje etikett → Haikus läsning används
-    hard: int = 0  # → T5
+    simple: int = 0  # T5T: enkel
+    hard: int = 0  # T5T: svår
+    verified: int = 0  # (tiles) svår, men Haiku och OCR överens om varje etikett → ingen T5
+    t5: int = 0  # bitar lästa av T5 (Sonnet)
     regrown: int = 0  # avskuren text utan hel läsning i grannbiten → biten förstorad och läst igen
+    rereads: int = 0  # etikettutsnitt lästa av T5R (Sonnet)
     escalated: int = 0  # lästa igen av T5X
     failed: int = 0  # ingen modell gav giltigt svar
 
@@ -327,28 +329,34 @@ def _agrees_with_ocr(haiku: list[Reading], tile_ocr: list[Reading]) -> bool:
 def _read_tile(
     ai: AIClient, tile: Tile, png: bytes, tile_ocr: list[Reading], project_id: uuid.UUID | None,
     run_ids: list[uuid.UUID], stats: TileStats,
-) -> tuple[list[Reading], bool]:  # fmt: skip
-    """Haiku (T5T) sorterar och läser biten. Tom → inget; enkel → Haikus läsning; svår men Haiku och OCR
-    överens om varje etikett → Haikus läsning; annars Sonnet (T5). Returnerar (läsningar, avskuren text?)."""
+) -> tuple[list[Reading], str | None]:  # fmt: skip
+    """Haiku (T5T) sorterar och läser biten. Returnerar (läsningar, uppgift som såg avskuren text eller None).
+
+    labels_routing = labels: Haikus läsning används; etiketter där Haiku och OCR inte enas läses om som
+    utsnitt (T5R). labels_routing = tiles: svår bit → T5 (Sonnet), utom när Haiku och OCR läser varje
+    etikett lika. Ogiltigt svar från T5T → T5 i båda lägena."""
     try:
         tri = ai.structured_result("T5T", _tile_parts(tile, png), TileTriage, project_id=project_id)
     except AITaskFailed:
-        tri = None  # sorteringen gav inget giltigt svar → behandla som svår
+        tri = None
     if tri is not None:
         run_ids.append(tri.run_id)
         haiku = _readings(tile, tri.value.labels, tri.served_model or tri.model)
-        if tri.value.kind == "empty":
+        cut = "T5T" if tri.value.tile_has_cut_text else None
+        kind = tri.value.kind
+        if kind == "empty":
             stats.empty += 1
-            return [], False
-        if not tri.value.tile_has_cut_text:
-            if tri.value.kind == "simple":
-                stats.simple += 1
-                return haiku, False
-            if _agrees_with_ocr(haiku, tile_ocr):
-                stats.verified += 1
-                return haiku, False
-    stats.hard += 1
-    return _vision_tile(ai, "T5", tile, png, project_id, run_ids)
+            return [], None
+        stats.simple += kind == "simple"
+        stats.hard += kind == "hard"
+        if ai.config.labels_routing == "labels":
+            return haiku, cut
+        if cut is None and (kind == "simple" or _agrees_with_ocr(haiku, tile_ocr)):
+            stats.verified += kind == "hard"
+            return haiku, None
+    stats.t5 += 1
+    got, t5_cut = _vision_tile(ai, "T5", tile, png, project_id, run_ids)
+    return got, "T5" if t5_cut else None
 
 
 def _at_inner_edge(box: BBox, clip: BBox, page: BBox, margin: float) -> bool:
@@ -417,7 +425,7 @@ def _read_page(
     problems: list[str] = []
     stats = TileStats()
     ai_tiles: list[Tile] = []
-    cut_tiles: list[Tile] = []
+    cut_tiles: list[tuple[Tile, str]] = []
     skipped = 0
     n_read = 0
     ai_ok = ai is not None
@@ -441,11 +449,11 @@ def _read_page(
             ocr_reads.extend(tile_ocr)
         if ai_ok and ai is not None:
             try:
-                got, cut = _read_tile(ai, tile, png, tile_ocr, project_id, run_ids, stats)
+                got, cut_by = _read_tile(ai, tile, png, tile_ocr, project_id, run_ids, stats)
                 vision.extend(got)
                 ai_tiles.append(tile)
-                if cut:
-                    cut_tiles.append(tile)
+                if cut_by:
+                    cut_tiles.append((tile, cut_by))
             except AITaskFailed as exc:
                 stats.failed += 1
                 problems.append(f"bit {tile.index}: {exc}")
@@ -456,7 +464,7 @@ def _read_page(
         ai_ok = _regrow(page, cut_tiles, tiles, vision, ai, project_id, run_ids, stats, problems)
     dedupe = th.get("tiles.dedupe_iou")
     vision, ocr_reads = _dedupe(vision, dedupe), _dedupe(ocr_reads, dedupe)
-    labels = _combine(page, vision, ocr_reads, ai if ai_ok else None, project_id, run_ids)
+    labels = _combine(page, vision, ocr_reads, ai if ai_ok else None, project_id, run_ids, stats)
     if ai_ok and ai is not None:
         try:
             _escalate(page, labels, ai_tiles, ai, project_id, run_ids, stats)
@@ -467,20 +475,26 @@ def _read_page(
 
 
 def _regrow(
-    page: pymupdf.Page, cut_tiles: list[Tile], tiles: list[Tile], vision: list[Reading], ai: AIClient,
+    page: pymupdf.Page, cut_tiles: list[tuple[Tile, str]], tiles: list[Tile], vision: list[Reading],
+    ai: AIClient,
     project_id: uuid.UUID | None, run_ids: list[uuid.UUID], stats: TileStats, problems: list[str],
 ) -> bool:  # fmt: skip
-    """Förstora och läs om (T5) de bitar där avskuren text saknar en hel läsning i en grannbit.
-    Returnerar False om AI-läsningen fick avbrytas."""
+    """Förstora och läs om (med samma uppgift som läste biten) de bitar där avskuren text saknar en hel
+    läsning i en grannbit. Returnerar False om AI-läsningen fick avbrytas."""
     th = load_thresholds()
     clips = {t.index: t.clip for t in tiles}
     page_box: BBox = (0.0, 0.0, page.rect.width, page.rect.height)
-    todo = [t for t in cut_tiles if _needs_regrow(t, vision, clips, page_box)]
-    for tile in todo:
+    todo = [(t, task) for t, task in cut_tiles if _needs_regrow(t, vision, clips, page_box)]
+    for tile, task in todo:
         big = _grown(tile, page, th.get("tiles.cut_text_grow"))
         _arr, png = render(page, big.clip, tile.dpi)
         try:
-            got, _cut = _vision_tile(ai, "T5", big, png, project_id, run_ids)
+            if task == "T5T":
+                tri = ai.structured_result("T5T", _tile_parts(big, png), TileTriage, project_id=project_id)
+                run_ids.append(tri.run_id)
+                got = _readings(big, tri.value.labels, tri.served_model or tri.model)
+            else:
+                got, _cut = _vision_tile(ai, task, big, png, project_id, run_ids)
         except AITaskFailed as exc:
             problems.append(f"bit {tile.index} förstorad: {exc}")
             continue
@@ -583,8 +597,10 @@ def _combine(
     ai: AIClient | None,
     project_id: uuid.UUID | None,
     run_ids: list[uuid.UUID],
+    stats: TileStats | None = None,
 ) -> list[LabelResult]:
     th = load_thresholds()
+    stats = stats if stats is not None else TileStats()
     cap = th.get("labels.single_reader_cap")
     min_conf = th.get("labels.min_read_confidence")
     out: list[LabelResult] = []
@@ -596,13 +612,16 @@ def _combine(
                 flags = ["uncertain_chars"] if v.uncertain_chars else []
                 out.append(LabelResult(v.text, box, v.rotation, conf, "vision+ocr", [v, o], flags))
                 continue
-            out.append(_reread(page, v, o, box, ai, project_id, run_ids))
+            out.append(_reread(page, v, o, box, ai, project_id, run_ids, stats))
             continue
         only = v or o
         assert only is not None
         conf = min(only.confidence, cap)
         flags = [f"only_{only.source}"] + (["uncertain_chars"] if only.uncertain_chars else [])
-        out.append(LabelResult(only.text, only.bbox, only.rotation, conf, only.source, [only], flags))
+        single = LabelResult(only.text, only.bbox, only.rotation, conf, only.source, [only], flags)
+        if ai is not None and ai.config.labels_routing == "labels":
+            single = _confirm(page, single, ai, project_id, run_ids, stats)
+        out.append(single)
     for lab in out:
         if lab.read_confidence < min_conf and "needs_review" not in lab.flags:
             lab.flags.append("needs_review")
@@ -617,30 +636,16 @@ def _reread(
     ai: AIClient | None,
     project_id: uuid.UUID | None,
     run_ids: list[uuid.UUID],
+    stats: TileStats,
 ) -> LabelResult:
     th = load_thresholds()
     below = min(v.confidence, o.confidence, th.get("labels.min_read_confidence") - 0.01)
     unresolved = LabelResult(v.text, box, v.rotation, below, "vision+ocr", [v, o], ["readers_disagree"])
     if ai is None:
         return unresolved
-    m = th.get("tiles.reread_margin_pt")
-    clip = (max(0.0, box[0] - m), max(0.0, box[1] - m), min(page.rect.width, box[2] + m),
-            min(page.rect.height, box[3] + m))  # fmt: skip
-    _arr, png = render(page, clip, int(th.get("tiles.reread_dpi")))
-    try:
-        result = ai.structured_result(
-            "T5R",
-            [
-                TextPart(f"Första läsningen: {v.text!r}\nAndra läsningen: {o.text!r}"),
-                ImagePart(png, label=f"p{page.number + 1}_reread"),
-            ],
-            LabelReread,
-            project_id=project_id,
-        )
-    except AI_UNAVAILABLE:
+    rr = _ask_reread(page, box, v.text, o.text, ai, project_id, run_ids, stats)
+    if rr is None:
         return unresolved
-    run_ids.append(result.run_id)
-    rr = result.value
     chosen = {"first": v.text, "second": o.text}.get(rr.choice)
     if (
         chosen is not None
@@ -651,6 +656,55 @@ def _reread(
                            [v, o], [f"reread_chose_{rr.choice}"])  # fmt: skip
     unresolved.flags.append(f"reread_{rr.choice}:{rr.text!r}")
     return unresolved
+
+
+def _ask_reread(
+    page: pymupdf.Page, box: BBox, first: str, second: str | None, ai: AIClient, project_id: uuid.UUID | None,
+    run_ids: list[uuid.UUID], stats: TileStats,
+) -> LabelReread | None:  # fmt: skip
+    """T5R på ett utsnitt i 600 dpi. None om AI inte är tillgänglig (etiketten förblir flaggad)."""
+    th = load_thresholds()
+    m = th.get("tiles.reread_margin_pt")
+    clip = (max(0.0, box[0] - m), max(0.0, box[1] - m), min(page.rect.width, box[2] + m),
+            min(page.rect.height, box[3] + m))  # fmt: skip
+    _arr, png = render(page, clip, int(th.get("tiles.reread_dpi")))
+    second_txt = repr(second) if second is not None else "(ingen)"
+    try:
+        result = ai.structured_result(
+            "T5R",
+            [
+                TextPart(f"Första läsningen: {first!r}\nAndra läsningen: {second_txt}"),
+                ImagePart(png, label=f"p{page.number + 1}_reread"),
+            ],
+            LabelReread,
+            project_id=project_id,
+        )
+    except AI_UNAVAILABLE:
+        return None
+    run_ids.append(result.run_id)
+    stats.rereads += 1
+    return result.value
+
+
+def _confirm(
+    page: pymupdf.Page, lab: LabelResult, ai: AIClient, project_id: uuid.UUID | None,
+    run_ids: list[uuid.UUID], stats: TileStats,
+) -> LabelResult:  # fmt: skip
+    """Bara en läsare såg etiketten: T5R läser utsnittet. Bekräftar den läsningen tecken för tecken med hög
+    säkerhet är två läsare överens (som en lyckad omläsning); annars förblir etiketten flaggad."""
+    th = load_thresholds()
+    rr = _ask_reread(page, lab.bbox, lab.text, None, ai, project_id, run_ids, stats)
+    if rr is None:
+        return lab
+    if (
+        rr.choice == "first"
+        and normalize(rr.text) == normalize(lab.text)
+        and rr.confidence >= th.get("labels.min_read_confidence")
+    ):
+        return LabelResult(lab.text, lab.bbox, lab.rotation, th.get("labels.reread_confidence"),
+                           f"{lab.method}+reread", lab.readings, ["reread_confirmed"])  # fmt: skip
+    lab.flags.append(f"reread_{rr.choice}:{rr.text!r}")
+    return lab
 
 
 # --------------------------------------------------------------------------- CLI

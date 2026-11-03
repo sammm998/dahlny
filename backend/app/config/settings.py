@@ -91,6 +91,7 @@ class ModelsConfig(_Strict):
     defaults: ModelDefaults
     cost_cap_usd_per_project: float = Field(gt=0)
     labels_budget_usd_per_sheet: float = Field(gt=0)
+    labels_routing: Literal["labels", "tiles"]
     providers: dict[ProviderName, dict[str, Any]]
     models: dict[str, ModelInfo]
     tasks: dict[str, TaskConfig]

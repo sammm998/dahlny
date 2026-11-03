@@ -17,7 +17,7 @@ from sqlalchemy.orm import Session, sessionmaker
 from app.ai.client import AIClient
 from app.ai.datatypes import ImagePart, ProviderNotConfigured, ProviderRequest, TextPart
 from app.ai.providers.fake import FakeProvider
-from app.config.settings import Thresholds, load_thresholds
+from app.config.settings import ModelsConfig, Thresholds, load_models_config, load_thresholds
 from app.drawings import labels as labels_module
 from app.drawings.labels import (
     BBox,
@@ -135,6 +135,7 @@ def run(
     escalated: Any = None,
     use_ocr: bool = True,
     budget_usd: float | None = None,
+    routing: str = "tiles",
 ) -> tuple[PageLabels, FakeProvider | None]:
     th = load_thresholds()
     tiles = [
@@ -161,7 +162,10 @@ def run(
         if escalated is not None:
             replies[T5X] = [escalated] * 10
         fake = FakeProvider(replies)
-        ai = AIClient(session_factory, provider_factory=lambda _n: fake)
+        raw = load_models_config().model_dump()
+        raw["labels_routing"] = routing
+        config = ModelsConfig.model_validate(raw)
+        ai = AIClient(session_factory, config=config, provider_factory=lambda _n: fake)
     return read_page_labels(page, ai=ai, ocr=ocr, budget_usd=budget_usd), fake
 
 
@@ -199,7 +203,7 @@ def test_hard_tile_goes_to_sonnet_and_agreement_gives_high_confidence(
     assert {r.model for r in lab.readings if r.source == "vision"} == {T5}
     # samma etikett i flera överlappande bitar blir en etikett
     assert sum(1 for lab in res.labels if normalize(lab.text) == "KV01-K1-15") == 1
-    assert set(models_called(fake)) == {T5T, T5} and res.stats.hard >= 1
+    assert set(models_called(fake)) == {T5T, T5} and res.stats.t5 >= 1
     assert res.cost_usd is not None and res.cost_usd > 0  # bladets kostnad loggas
 
 
@@ -212,7 +216,7 @@ def test_simple_tile_is_read_by_haiku_without_sonnet(
     [lab] = res.labels
     assert lab.method == "vision+ocr" and lab.read_confidence == 0.98
     assert {r.model for r in lab.readings if r.source == "vision"} == {T5T}
-    assert set(models_called(fake)) == {T5T} and res.stats.simple >= 1 and res.stats.hard == 0
+    assert set(models_called(fake)) == {T5T} and res.stats.simple >= 1 and res.stats.t5 == 0
 
 
 def test_hard_tile_where_haiku_and_ocr_agree_skips_sonnet(
@@ -223,7 +227,7 @@ def test_hard_tile_where_haiku_and_ocr_agree_skips_sonnet(
     )
     [lab] = res.labels
     assert lab.read_confidence == 0.98 and set(models_called(fake)) == {T5T}
-    assert res.stats.verified >= 1 and res.stats.hard == 0
+    assert res.stats.verified >= 1 and res.stats.t5 == 0
 
 
 def test_hard_tile_where_haiku_and_ocr_disagree_goes_to_sonnet(
@@ -235,7 +239,54 @@ def test_hard_tile_where_haiku_and_ocr_disagree_goes_to_sonnet(
     )  # fmt: skip
     [lab] = res.labels
     assert lab.read_confidence == 0.98 and {r.model for r in lab.readings if r.source == "vision"} == {T5}
-    assert res.stats.hard >= 1 and res.stats.verified == 0
+    assert res.stats.t5 >= 1 and res.stats.verified == 0
+
+
+def test_label_routing_sends_only_disagreeing_labels_to_sonnet(
+    pdf_page: Any, session_factory: sessionmaker[Session]
+) -> None:
+    reread = {"text": "KV01-K1-15", "choice": "second", "confidence": 0.95, "reason": "nolla"}
+    res, fake = run(
+        pdf_page, session_factory, triage=triage_reply("hard", "KVO1-K1-15"), reread=reread,
+        ocr_text="KV01-K1-15", routing="labels",
+    )  # fmt: skip
+    [lab] = res.labels
+    assert lab.text == "KV01-K1-15" and lab.read_confidence == 0.85 and lab.method == "vision+ocr+reread"
+    assert fake is not None and all(tile_of(c).endswith("_reread") for c in fake.calls if c.model == T5)
+    assert res.stats.t5 == 0 and res.stats.rereads == 1 and res.stats.hard >= 1
+
+
+def test_label_routing_agreement_needs_no_sonnet(
+    pdf_page: Any, session_factory: sessionmaker[Session]
+) -> None:
+    res, fake = run(
+        pdf_page, session_factory, triage=triage_reply("hard", "KV01-K1-15"), ocr_text="KV01-K1-15",
+        routing="labels",
+    )  # fmt: skip
+    [lab] = res.labels
+    assert lab.read_confidence == 0.98 and set(models_called(fake)) == {T5T}
+
+
+def test_label_routing_confirms_a_single_reader(
+    pdf_page: Any, session_factory: sessionmaker[Session]
+) -> None:
+    confirm = {"text": "KV01-K1-15", "choice": "first", "confidence": 0.95, "reason": "tydlig"}
+    res, _ = run(
+        pdf_page, session_factory, triage=triage_reply("empty"), reread=confirm, ocr_text="KV01-K1-15",
+        routing="labels",
+    )  # fmt: skip
+    [lab] = res.labels
+    assert lab.method == "ocr+reread" and lab.read_confidence == 0.85 and lab.flags == ["reread_confirmed"]
+
+
+def test_label_routing_unconfirmed_single_reader_stays_flagged(
+    pdf_page: Any, session_factory: sessionmaker[Session]
+) -> None:
+    other = {"text": "KV01-K1-16", "choice": "neither", "confidence": 0.9, "reason": "sexa"}
+    res, _ = run(pdf_page, session_factory, triage=triage_reply("empty"), reread=other, ocr_text="KV01-K1-15",
+                 routing="labels")  # fmt: skip
+    [lab] = res.labels
+    assert lab.read_confidence < 0.8 and "needs_review" in lab.flags and lab.text == "KV01-K1-15"
 
 
 def test_cut_text_is_reread_only_without_a_whole_reading_in_a_neighbour() -> None:
