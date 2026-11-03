@@ -58,3 +58,14 @@ def test_corrections_are_logged(project: Path) -> None:
     }
     assert c.post("/api/projects/proj/corrections", json=body).json()["ok"]
     assert c.get("/api/projects/proj").json()["corrections"][0]["new"] == 2
+
+
+def test_the_start_page_is_the_review_ui() -> None:
+    r = TestClient(app).get("/", follow_redirects=False)
+    assert r.status_code in (302, 307) and r.headers["location"] in ("/ui/", "/docs")
+    assert TestClient(app).get("/ui/").status_code == 200
+
+
+def test_no_projects_is_an_empty_list(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("VSK_PROJECTS_DIR", str(tmp_path / "saknas"))
+    assert TestClient(app).get("/api/projects").json() == []

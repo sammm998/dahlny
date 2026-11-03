@@ -73,11 +73,17 @@ function App() {
   const [src, setSrc] = useState(null);
   const [sheet, setSheet] = useState(null);
   const [msg, setMsg] = useState("");
-  useEffect(() => { api("/api/projects").then(p => { setProjects(p); if (p.length) setPid(p[0].id); }).catch(() => setMsg("API:t svarar inte – starta backend (make dev).")); }, []);
+  useEffect(() => { api("/api/projects").then(p => { setProjects(p); if (p.length) setPid(p[0].id); else setMsg("empty"); }).catch(() => setMsg("API:t svarar inte – starta backend (make dev).")); }, []);
   const load = () => pid && api(`/api/projects/${pid}`).then(setB);
   useEffect(() => { load(); }, [pid]);
   const correct = (entity, id, field, old, nw) => api(`/api/projects/${pid}/corrections`, {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({entity, entity_id: id, field, old, new: nw})}).then(r => { setMsg(`Korrigering sparad${r.stored_in_db ? " i databasen" : " i projektets logg (databasen nås inte)"}.`); load(); });
   const S = refs => () => setSrc(refs);
+  if (!b && msg === "empty") return html`<div><header><h1>VS-Kalkyl</h1></header><main>
+    <h2>Inga projekt ännu</h2>
+    <p>Ett projekt är en körning av flödet på ett förfrågningsunderlag. Kör den och lägg utmappen i projektkatalogen
+    (<code>VSK_PROJECTS_DIR</code>, en undermapp per projekt):</p>
+    <pre>cd backend && python -m app.pipeline.demo MAPP_MED_UNDERLAG ../projekt/MITT_PROJEKT --register REGISTER.csv</pre>
+    <p>Uppladdning direkt i gränssnittet är inte påslagen än. Se docs/KOMIGANG.md.</p></main></div>`;
   if (!b) return html`<div><header><h1>VS-Kalkyl</h1></header><main>${msg || "Laddar …"}</main></div>`;
   const p = b.project || {};
   const files = f => `/api/projects/${pid}/files/${encodeURIComponent(f)}`;

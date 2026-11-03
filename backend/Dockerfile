@@ -8,8 +8,11 @@ COPY backend/pyproject.toml ./
 COPY backend/app ./app
 COPY backend/alembic.ini ./
 RUN pip install --no-cache-dir .
+# granskningsgränssnittet (statiskt) och katalogen med projektkörningar (bundle.json per projekt)
+COPY frontend ./frontend
+ENV VSK_UI_DIR=/app/frontend VSK_PROJECTS_DIR=/app/projekt
 
-RUN useradd --create-home vskalkyl
+RUN useradd --create-home vskalkyl && mkdir -p /app/projekt && chown vskalkyl /app/projekt
 USER vskalkyl
 
 # Railway anger porten i $PORT; lokalt 8000
